@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login.dart';
 import 'dashboard.dart';
+import 'profile.dart';
 
 void main() {
   runApp(const MyApp());
@@ -23,6 +24,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => LoginPage(),
         '/dashboard': (context) => DashboardPage(),
+        '/profile': (context) => ProfilePage(),
       },
     );
   }

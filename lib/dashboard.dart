@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'profile.dart'; // ✅ Add this import
 
 class DashboardPage extends StatefulWidget {
   @override
@@ -19,7 +20,7 @@ class _DashboardPageState extends State<DashboardPage> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Processing your question...")),
+        const SnackBar(content: Text("Processing your question...")),
       );
 
       // Simulate backend response
@@ -27,11 +28,11 @@ class _DashboardPageState extends State<DashboardPage> {
         setState(() {
           isPlaying = false;
           responseText =
-          "ನಿಮ್ಮ ಪ್ರಶ್ನೆಗೆ ಉತ್ತರ: ಗರ್ಭಾವಸ್ಥೆಯಲ್ಲಿ ಆರೋಗ್ಯಕರ ಆಹಾರ ಮತ್ತು ನಿಯಮಿತ ವೈದ್ಯಕೀಯ ಪರೀಕ್ಷೆಗಳು ಬಹಳ ಮುಖ್ಯ. ತಾಜಾ ಹಣ್ಣುಗಳು, ಹಸಿರು ತರಕಾರಿಗಳನ್ನು ಸೇವಿಸಿ.\n\nYour answer: During pregnancy, healthy diet and regular medical checkups are very important. Consume fresh fruits and green vegetables.";
+              "ನಿಮ್ಮ ಪ್ರಶ್ನೆಗೆ ಉತ್ತರ: ಗರ್ಭಾವಸ್ಥೆಯಲ್ಲಿ ಆರೋಗ್ಯಕರ ಆಹಾರ ಮತ್ತು ನಿಯಮಿತ ವೈದ್ಯಕೀಯ ಪರೀಕ್ಷೆಗಳು ಬಹಳ ಮುಖ್ಯ. ತಾಜಾ ಹಣ್ಣುಗಳು, ಹಸಿರು ತರಕಾರಿಗಳನ್ನು ಸೇವಿಸಿ.\n\nYour answer: During pregnancy, healthy diet and regular medical checkups are very important. Consume fresh fruits and green vegetables.";
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Audio response ready in Kannada")),
+          const SnackBar(content: Text("Audio response ready in Kannada")),
         );
       });
     } else {
@@ -42,13 +43,17 @@ class _DashboardPageState extends State<DashboardPage> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Recording started, tap again to stop")),
+        const SnackBar(content: Text("Recording started, tap again to stop")),
       );
     }
   }
 
   void handleProfileOpen() {
-    Navigator.pushNamed(context, '/profile');
+    // ✅ Navigate directly to ProfilePage
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const ProfilePage()),
+    );
   }
 
   @override
@@ -77,9 +82,9 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Column(
+                  const Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text("ನಮಸ್ಕಾರ ಅಮ್ಮ!",
                           style: TextStyle(
                               fontSize: 22,
@@ -87,8 +92,8 @@ class _DashboardPageState extends State<DashboardPage> {
                               color: Colors.white)),
                       SizedBox(height: 4),
                       Text("How can I help you today?",
-                          style: TextStyle(
-                              fontSize: 14, color: Colors.white70)),
+                          style:
+                              TextStyle(fontSize: 14, color: Colors.white70)),
                     ],
                   ),
                   IconButton(
@@ -99,13 +104,12 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
 
-            // Status Indicator
             if (isRecording || isPlaying)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 12, vertical: 6),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.white24,
                     borderRadius: BorderRadius.circular(20),
@@ -124,9 +128,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                       if (isRecording) const SizedBox(width: 6),
                       Icon(
-                        isRecording
-                            ? Icons.mic
-                            : Icons.volume_up,
+                        isRecording ? Icons.mic : Icons.volume_up,
                         size: 16,
                         color: Colors.white,
                       ),
@@ -142,7 +144,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
 
-            // Main Content
             Expanded(
               child: Container(
                 transform: Matrix4.translationValues(0, -20, 0),
@@ -151,8 +152,6 @@ class _DashboardPageState extends State<DashboardPage> {
                   child: Column(
                     children: [
                       const SizedBox(height: 16),
-
-                      // Voice Assistant Card
                       Card(
                         elevation: 6,
                         shape: RoundedRectangleBorder(
@@ -186,8 +185,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                     isRecording
                                         ? Icons.mic_off
                                         : isPlaying
-                                        ? Icons.volume_up
-                                        : Icons.mic,
+                                            ? Icons.volume_up
+                                            : Icons.mic,
                                     size: 48,
                                     color: Colors.white,
                                   ),
@@ -198,8 +197,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                 isRecording
                                     ? "ಕೇಳುತ್ತಿದ್ದೇವೆ..."
                                     : isPlaying
-                                    ? "ಉತ್ತರ ನೀಡುತ್ತಿದ್ದೇವೆ..."
-                                    : "ಕನ್ನಡದಲ್ಲಿ ಪ್ರಶ್ನೆ ಕೇಳಿ",
+                                        ? "ಉತ್ತರ ನೀಡುತ್ತಿದ್ದೇವೆ..."
+                                        : "ಕನ್ನಡದಲ್ಲಿ ಪ್ರಶ್ನೆ ಕೇಳಿ",
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                     fontSize: 16,
@@ -208,7 +207,6 @@ class _DashboardPageState extends State<DashboardPage> {
                               ),
                               const SizedBox(height: 16),
 
-                              // Response Text Display
                               if (responseText.isNotEmpty)
                                 Card(
                                   color: Colors.pink[50],
@@ -216,7 +214,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                     padding: const EdgeInsets.all(12),
                                     child: Row(
                                       crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Icon(Icons.volume_up,
                                             color: Colors.pink[400], size: 20),
@@ -240,18 +238,16 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
 
                       const SizedBox(height: 16),
-
-                      // Quick Tips
                       Card(
                         elevation: 6,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
+                        child: const Padding(
+                          padding: EdgeInsets.all(16),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
-                            children: const [
+                            children: [
                               Text("💡 ಮಾರ್ಗದರ್ಶನ",
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
@@ -260,15 +256,15 @@ class _DashboardPageState extends State<DashboardPage> {
                               TipRow(
                                   icon: Icons.mic,
                                   text:
-                                  "ಗರ್ಭಾವಸ್ಥೆ, ಪೋಷಣೆ, ಮಗುವಿನ ಆರೈಕೆ ಬಗ್ಗೆ ಕನ್ನಡದಲ್ಲಿ ಕೇಳಿ"),
+                                      "ಗರ್ಭಾವಸ್ಥೆ, ಪೋಷಣೆ, ಮಗುವಿನ ಆರೈಕೆ ಬಗ್ಗೆ ಕನ್ನಡದಲ್ಲಿ ಕೇಳಿ"),
                               TipRow(
                                   icon: Icons.volume_up,
                                   text:
-                                  "ಪ್ರಶ್ನೆಗಳಿಗೆ ಧ್ವನಿ ಮತ್ತು ಪಠ್ಯ ಎರಡರಲ್ಲೂ ಉತ್ತರ ಪಡೆಯಿರಿ"),
+                                      "ಪ್ರಶ್ನೆಗಳಿಗೆ ಧ್ವನಿ ಮತ್ತು ಪಠ್ಯ ಎರಡರಲ್ಲೂ ಉತ್ತರ ಪಡೆಯಿರಿ"),
                               TipRow(
                                   icon: Icons.favorite,
                                   text:
-                                  "ತಜ್ಞರ ಸಲಹೆ ಮತ್ತು ವೈಯಕ್ತಿಕ ಆರೋಗ್ಯ ಮಾಹಿತಿ ಪಡೆಯಿರಿ"),
+                                      "ತಜ್ಞರ ಸಲಹೆ ಮತ್ತು ವೈಯಕ್ತಿಕ ಆರೋಗ್ಯ ಮಾಹಿತಿ ಪಡೆಯಿರಿ"),
                             ],
                           ),
                         ),
@@ -298,7 +294,7 @@ class TipRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: Colors.pink[400]),
+          Icon(icon, size: 18, color: Colors.pink),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
