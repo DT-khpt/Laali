@@ -1,309 +1,449 @@
 import 'package:flutter/material.dart';
-import 'profile.dart'; // ✅ Add this import
+import 'package:shared_preferences/shared_preferences.dart';
+import 'services/tts_service.dart';
 
 class DashboardPage extends StatefulWidget {
+  const DashboardPage({super.key});
+
   @override
-  _DashboardPageState createState() => _DashboardPageState();
+  State<DashboardPage> createState() => _DashboardPageState();
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  bool isRecording = false;
-  bool isPlaying = false;
-  String responseText = '';
+  String username = 'User';
+  DateTime lmpDate = DateTime.now();
+  GestationalAge? ga;
+  bool loading = true;
 
-  void handleVoiceRecord() {
-    if (isRecording) {
-      // Stop recording
+  // Mock data (mirrors your TS mock)
+  final String riskLevel = 'Low';
+  final List<RecentSymptom> recentSymptoms = [
+    RecentSymptom(symptom: 'Mild headache', date: 'Yesterday', severity: 'Low'),
+    RecentSymptom(symptom: 'Blood pressure check', date: '2 days ago', severity: 'Normal'),
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _initTts();
+    _loadPrefsAndCalculate();
+  }
+
+  Future<void> _initTts() async {
+    await ttsService.setLanguage('kn-IN');
+    await ttsService.setSpeechRate(0.9); // approx mapping
+    await ttsService.setPitch(1.0);
+  }
+
+  Future<void> _loadPrefsAndCalculate() async {
+    final prefs = await SharedPreferences.getInstance();
+    final storedUsername = prefs.getString('username');
+    final lmpStr = prefs.getString('lmpDate');
+
+    if (mounted) {
       setState(() {
-        isRecording = false;
-        isPlaying = true;
+        username = storedUsername ?? 'User';
+        if (lmpStr != null) {
+          try {
+            lmpDate = DateTime.parse(lmpStr);
+          } catch (_) {
+            lmpDate = DateTime.now();
+          }
+        } else {
+          lmpDate = DateTime.now();
+        }
+        ga = calculateGestationalAge(lmpDate);
+        loading = false;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Processing your question...")),
-      );
-
-      // Simulate backend response
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() {
-          isPlaying = false;
-          responseText =
-              "ನಿಮ್ಮ ಪ್ರಶ್ನೆಗೆ ಉತ್ತರ: ಗರ್ಭಾವಸ್ಥೆಯಲ್ಲಿ ಆರೋಗ್ಯಕರ ಆಹಾರ ಮತ್ತು ನಿಯಮಿತ ವೈದ್ಯಕೀಯ ಪರೀಕ್ಷೆಗಳು ಬಹಳ ಮುಖ್ಯ. ತಾಜಾ ಹಣ್ಣುಗಳು, ಹಸಿರು ತರಕಾರಿಗಳನ್ನು ಸೇವಿಸಿ.\n\nYour answer: During pregnancy, healthy diet and regular medical checkups are very important. Consume fresh fruits and green vegetables.";
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Audio response ready in Kannada")),
-        );
-      });
-    } else {
-      // Start recording
-      setState(() {
-        isRecording = true;
-        responseText = '';
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Recording started, tap again to stop")),
-      );
     }
   }
 
-  void handleProfileOpen() {
-    // ✅ Navigate directly to ProfilePage
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const ProfilePage()),
-    );
+  Future<void> _speakSummary() async {
+    if (ga == null) return;
+    final dueDateStr = formatDueDate(ga!.dueDate);
+    final gaStr = formatGestationalAge(ga!);
+    final trimester = ga!.trimester;
+    final recent = recentSymptoms.isNotEmpty
+        ? recentSymptoms.map((s) => s.symptom).join(', ')
+        : 'ನೀವು ಇತ್ತೀಚೆಗೆ ಯಾವುದೇ ಲಕ್ಷಣಗಳನ್ನು ವರದಿ ಮಾಡಿಲ್ಲ';
+    final summary =
+        'ನಮಸ್ಕಾರ $username. ನೀವು ಪ್ರಸ್ತುತ ಗರ್ಭಾವಸ್ಥೆಯ $gaStr ನಲ್ಲಿದ್ದೀರಿ, ಇದು $trimester ನೇ ತ್ರೈಮಾಸಿಕ. ನಿಮ್ಮ ನಿರೀಕ್ಷಿತ ಹೆರಿಗೆ ದಿನಾಂಕ $dueDateStr. ನಿಮ್ಮ ಗರ್ಭಾವಸ್ಥೆಯ ಅಪಾಯ ಮೌಲ್ಯಮಾಪನ $riskLevel ಆಗಿದೆ. ${recentSymptoms.isNotEmpty ? 'ನೀವು ಇತ್ತೀಚೆಗೆ ವರದಿ ಮಾಡಿದ ಲಕ್ಷಣಗಳು: $recent.' : recent}';
+    await ttsService.speak(summary);
+  }
+
+  Color _riskColor(String level) {
+    switch (level) {
+      case 'Low':
+        return Colors.green;
+      case 'Medium':
+        return Colors.orange;
+      case 'High':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _translateSeverity(String s) {
+    if (s == 'Low') return 'ಕಡಿಮೆ';
+    if (s == 'Normal') return 'ಸಾಮಾನ್ಯ';
+    return s;
+  }
+
+  @override
+  void dispose() {
+    ttsService.stop();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (loading || ga == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final riskColor = _riskColor(riskLevel);
+
     return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pushNamed(context, '/voice'),
+          tooltip: 'ಹಿಂದೆ',
+        ),
+        title: const Text('ಡ್ಯಾಶ್‌ಬೋರ್ಡ್'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.mic),
+            onPressed: _speakSummary,
+            tooltip: 'Read summary',
+          ),
+          IconButton(
+            icon: const Icon(Icons.chat),
+            onPressed: () => Navigator.pushReplacementNamed(context, '/voice'),
+            tooltip: 'ಧ್ವನಿ ಸಹಾಯಕ',
+          ),
+        ],
+        elevation: 2,
+      ),
       body: Container(
         decoration: const BoxDecoration(
+          // subtle background gradient similar to original
           gradient: LinearGradient(
-            colors: [Color(0xFFF48FB1), Color(0xFFE91E63)],
+            colors: [Color(0xFFF7FAFC), Color(0xFFFFFFFF)],
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
           ),
         ),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 48, 16, 32),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFE91E63), Color(0xFFF48FB1)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  // Welcome
+                  const SizedBox(height: 8),
+                  Column(
                     children: [
-                      Text("ನಮಸ್ಕಾರ ಅಮ್ಮ!",
-                          style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white)),
-                      SizedBox(height: 4),
-                      Text("How can I help you today?",
-                          style:
-                              TextStyle(fontSize: 14, color: Colors.white70)),
+                      Text('ಸ್ವಾಗತ, $username',
+                          style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Text('ನಿಮ್ಮ ಗರ್ಭಾವಸ್ಥೆಯ ಅವಲೋಕನ ಇಲ್ಲಿದೆ',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(color: Colors.grey[700])),
                     ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.person, color: Colors.white, size: 28),
-                    onPressed: handleProfileOpen,
+                  const SizedBox(height: 20),
+
+                  // Gestational Age Card
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.calendar_today, size: 20),
+                              SizedBox(width: 8),
+                              Text('ಗರ್ಭಾವಸ್ಥೆಯ ವಯಸ್ಸು', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          Column(
+                            children: [
+                              Text(formatGestationalAge(ga!),
+                                  style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor)),
+                              const SizedBox(height: 6),
+                              Text('ತ್ರೈಮಾಸಿಕ ${ga!.trimester}', style: TextStyle(color: Colors.grey[700])),
+                            ],
+                          ),
+                          const SizedBox(height: 18),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('ಪ್ರಗತಿ', style: TextStyle(fontSize: 13)),
+                              Text('${ga!.percentComplete.round()}%', style: const TextStyle(fontSize: 13)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: LinearProgressIndicator(
+                              value: (ga!.percentComplete / 100).clamp(0.0, 1.0),
+                              minHeight: 10,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text('ನಿರೀಕ್ಷಿತ ಹೆರಿಗೆ ದಿನಾಂಕ: ${formatDueDate(ga!.dueDate)}',
+                              style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                        ],
+                      ),
+                    ),
                   ),
+
+                  const SizedBox(height: 16),
+
+                  // Risk Assessment Card
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.warning_amber_rounded, size: 20),
+                              const SizedBox(width: 8),
+                              const Text('ಅಪಾಯ ಮೌಲ್ಯಮಾಪನ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Column(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: riskColor.withAlpha(30),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Container(width: 10, height: 10, decoration: BoxDecoration(color: riskColor, shape: BoxShape.circle)),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      '${riskLevel == 'Low' ? 'ಕಡಿಮೆ' : riskLevel == 'Medium' ? 'ಮಧ್ಯಮ' : 'ಹೆಚ್ಚು'} ಅಪಾಯ',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: riskColor),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text('ವರದಿ ಮಾಡಿದ ಲಕ್ಷಣಗಳು ಮತ್ತು ಆರೋಗ್ಯ ಡೇಟಾದ ಆಧಾರದ ಮೇಲೆ',
+                                  style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Recent Activity Card
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.history, size: 20),
+                              SizedBox(width: 8),
+                              Text('ಇತ್ತೀಚಿನ ಚಟುವಟಿಕೆ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (recentSymptoms.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              child: Text('ಇತ್ತೀಚೆಗೆ ಯಾವುದೇ ಲಕ್ಷಣಗಳನ್ನು ವರದಿ ಮಾಡಲಾಗಿಲ್ಲ', style: TextStyle(color: Colors.grey[700])),
+                            )
+                          else
+                            Column(
+                              children: recentSymptoms.map((item) {
+                                final bgColor = item.severity == 'Low'
+                                    ? Colors.green.withAlpha(30)
+                                    : item.severity == 'Normal'
+                                    ? Theme.of(context).primaryColor.withAlpha(30)
+                                    : Colors.orange.withAlpha(30);
+                                final badgeText = _translateSeverity(item.severity);
+                                final dateDisplay = item.date == 'Yesterday' ? 'ನಿನ್ನೆ' : item.date == '2 days ago' ? '2 ದಿನಗಳ ಹಿಂದೆ' : item.date;
+                                return Container(
+                                  margin: const EdgeInsets.symmetric(vertical: 6),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(10)),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(item.symptom, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                          const SizedBox(height: 4),
+                                          Text(dateDisplay, style: TextStyle(color: Colors.grey[700], fontSize: 13)),
+                                        ],
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                        decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)),
+                                        child: Text(badgeText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                      )
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 18),
+
+                  // Actions
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          icon: const Icon(Icons.mic),
+                          label: const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 14.0),
+                            child: Text('ಲಕ್ಷಣವನ್ನು ವರದಿ ಮಾಡಿ', style: TextStyle(fontSize: 16)),
+                          ),
+                          onPressed: () => Navigator.pushNamed(context, '/voice'),
+                          style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  // Voice helper card
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: const [
+                              Icon(Icons.mic, size: 20, color: Colors.blue),
+                              SizedBox(width: 8),
+                              Text('ಧ್ವನಿ ಸಹಾಯಕ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          const Text('ನಿಮ್ಮ ಆರೋಗ್ಯ ಪ್ರಶ್ನೆಗಳಿಗೆ ತಕ್ಷಣ ಉತ್ತರ ಪಡೆಯಿರಿ', style: TextStyle(color: Colors.grey)),
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            icon: const Icon(Icons.mic),
+                            label: const Text('ಪ್ರಶ್ನೆ ಕೇಳಿ'),
+                            onPressed: () => Navigator.pushReplacementNamed(context, '/voice'),
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
-
-            if (isRecording || isPlaying)
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (isRecording)
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(
-                            color: Colors.red,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      if (isRecording) const SizedBox(width: 6),
-                      Icon(
-                        isRecording ? Icons.mic : Icons.volume_up,
-                        size: 16,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        isRecording
-                            ? "ಕೇಳುತ್ತಿದ್ದೇವೆ..."
-                            : "ಉತ್ತರ ನೀಡುತ್ತಿದ್ದೇವೆ...",
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-            Expanded(
-              child: Container(
-                transform: Matrix4.translationValues(0, -20, 0),
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 16),
-                      Card(
-                        elevation: 6,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            children: [
-                              Text(
-                                "Ask Your Health Question",
-                                style: TextStyle(
-                                    color: Colors.pink[400],
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16),
-                              ),
-                              const SizedBox(height: 20),
-                              GestureDetector(
-                                onTap: handleVoiceRecord,
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 300),
-                                  width: 100,
-                                  height: 100,
-                                  decoration: BoxDecoration(
-                                    color: isRecording
-                                        ? Colors.red[400]
-                                        : Colors.pink[400],
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    isRecording
-                                        ? Icons.mic_off
-                                        : isPlaying
-                                            ? Icons.volume_up
-                                            : Icons.mic,
-                                    size: 48,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                isRecording
-                                    ? "ಕೇಳುತ್ತಿದ್ದೇವೆ..."
-                                    : isPlaying
-                                        ? "ಉತ್ತರ ನೀಡುತ್ತಿದ್ದೇವೆ..."
-                                        : "ಕನ್ನಡದಲ್ಲಿ ಪ್ರಶ್ನೆ ಕೇಳಿ",
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.black54),
-                              ),
-                              const SizedBox(height: 16),
-
-                              if (responseText.isNotEmpty)
-                                Card(
-                                  color: Colors.pink[50],
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(Icons.volume_up,
-                                            color: Colors.pink[400], size: 20),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            responseText,
-                                            style: const TextStyle(
-                                                fontSize: 14,
-                                                height: 1.4,
-                                                color: Colors.black87),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-
-                      const SizedBox(height: 16),
-                      Card(
-                        elevation: 6,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text("💡 ಮಾರ್ಗದರ್ಶನ",
-                                  style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16)),
-                              SizedBox(height: 12),
-                              TipRow(
-                                  icon: Icons.mic,
-                                  text:
-                                      "ಗರ್ಭಾವಸ್ಥೆ, ಪೋಷಣೆ, ಮಗುವಿನ ಆರೈಕೆ ಬಗ್ಗೆ ಕನ್ನಡದಲ್ಲಿ ಕೇಳಿ"),
-                              TipRow(
-                                  icon: Icons.volume_up,
-                                  text:
-                                      "ಪ್ರಶ್ನೆಗಳಿಗೆ ಧ್ವನಿ ಮತ್ತು ಪಠ್ಯ ಎರಡರಲ್ಲೂ ಉತ್ತರ ಪಡೆಯಿರಿ"),
-                              TipRow(
-                                  icon: Icons.favorite,
-                                  text:
-                                      "ತಜ್ಞರ ಸಲಹೆ ಮತ್ತು ವೈಯಕ್ತಿಕ ಆರೋಗ್ಯ ಮಾಹಿತಿ ಪಡೆಯಿರಿ"),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-// Reusable widget for tips
-class TipRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
+/// Simple model for recent symptom
+class RecentSymptom {
+  final String symptom;
+  final String date;
+  final String severity;
 
-  const TipRow({required this.icon, required this.text});
+  RecentSymptom({required this.symptom, required this.date, required this.severity});
+}
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: Colors.pink),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(fontSize: 13, color: Colors.black54),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+/// GestationalAge result object
+class GestationalAge {
+  final int weeks;
+  final int days; // leftover days
+  final DateTime dueDate;
+  final double percentComplete; // 0..100
+  final int trimester; // 1,2,3
+
+  GestationalAge({
+    required this.weeks,
+    required this.days,
+    required this.dueDate,
+    required this.percentComplete,
+    required this.trimester,
+  });
+}
+
+/// Calculate gestational age from LMP date:
+/// - Pregnancy length assumed 280 days (40 weeks)
+/// - weeks and days elapsed, percent complete relative to 280 days
+GestationalAge calculateGestationalAge(DateTime lmp) {
+  final now = DateTime.now();
+  final dueDate = lmp.add(const Duration(days: 280)); // 40 * 7
+  final elapsed = now.difference(lmp).inDays.clamp(0, 280);
+  final weeks = elapsed ~/ 7;
+  final days = elapsed % 7;
+  final percentComplete = (elapsed / 280.0) * 100.0;
+  final trimester = (weeks < 13) ? 1 : (weeks < 27) ? 2 : 3;
+  return GestationalAge(
+    weeks: weeks,
+    days: days,
+    dueDate: dueDate,
+    percentComplete: percentComplete,
+    trimester: trimester,
+  );
+}
+
+String formatGestationalAge(GestationalAge ga) {
+  // e.g. "12w 3d"
+  return '${ga.weeks} ವಾರಗಳು ${ga.days} ದಿನಗಳು';
+}
+
+String formatDueDate(DateTime due) {
+  // Format like: 15 Aug 2025
+  final months = [
+    'ಜನವರಿ',
+    'ಫೆಬ್ರವರಿ',
+    'ಮಾರ್ಚ್',
+    'ಎಪ್ರಿಲ್',
+    'ಮೇ',
+    'ಜೂನ್',
+    'ಜುಲೈ',
+    'ಆಗಸ್ಟ್',
+    'ಸೆಪ್ಟೆಂಬರ್',
+    'ಅಕ್ಟೋಬರ್',
+    'ನವೆಂಬರ್',
+    'ಡಿಸೆಂಬರ್'
+  ];
+  final day = due.day;
+  final month = months[due.month - 1];
+  final year = due.year;
+  return '$day $month $year';
 }
