@@ -1,4 +1,4 @@
 // lib/config/api_config.dart
 class ApiConfig {
-  static const String geminiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static const String geminiKey = String.fromEnvironment('');
 }

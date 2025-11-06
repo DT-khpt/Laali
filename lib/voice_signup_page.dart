@@ -396,6 +396,257 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
   }
 
   @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    // Use helper _getSubtitle() instead of a local variable
+
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Container(
+          width: double.infinity,
+          height: double.infinity,
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            children: [
+              // Back Button
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.arrow_back, color: Color(0xFF00796B)),
+                  label: const Text('ಹಿಂದೆ', style: TextStyle(color: Color(0xFF00796B))),
+                ),
+              ),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('ಖಾತೆ ರಚಿಸಿ', style: theme.textTheme.displayMedium),
+                          const SizedBox(height: 8),
+
+                          Text(
+                            _getSubtitle(),
+                            style: theme.textTheme.bodyMedium,
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Signup Card
+                          Card(
+                            elevation: 4,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                children: [
+                                  // Progress Indicator
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      _buildProgressStep(1, 'ಹೆಸರು', username.isNotEmpty),
+                                      const SizedBox(width: 8),
+                                      _buildProgressStep(2, 'ದಿನಾಂಕ', lmpDate != null),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
+
+                                  // User Info Display
+                                  if (username.isNotEmpty) _buildInfoRow('ಹೆಸರು', username),
+                                  if (lmpDate != null) _buildInfoRow('ಕೊನೆಯ ಮುಟ್ಟಿನ ದಿನಾಂಕ', _formatDateKn(lmpDate!)),
+
+                                  if (transcript.isNotEmpty)
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(16),
+                                      margin: const EdgeInsets.symmetric(vertical: 16),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0x0D1976D2), // 5% blue
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: const Color(0x331976D2), // 20% blue
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '"$transcript"',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(
+                                          fontStyle: FontStyle.italic,
+                                          color: Color(0xFF1976D2),
+                                        ),
+                                      ),
+                                    ),
+
+                                  const SizedBox(height: 16),
+
+                                  // Microphone Button
+                                  Column(
+                                    children: [
+                                      GestureDetector(
+                                        onTap: _toggleListening,
+                                        child: Container(
+                                          width: 80,
+                                          height: 80,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: isListening
+                                                ? const Color(0xFFD32F2F)
+                                                : const Color(0xFF1976D2),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: const Color(0x26000000), // ~15% black
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Icon(
+                                            isListening ? Icons.mic : Icons.mic_none,
+                                            color: Colors.white,
+                                            size: 32,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        isListening ? 'ಕೇಳುತ್ತಿದೆ...' : (isSpeaking ? 'ಮಾತನಾಡುತ್ತಿದೆ...' : 'ಮಾತನಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ'),
+                                        style: theme.textTheme.bodyLarge,
+                                      ),
+                                    ],
+                                  ),
+
+                                  const SizedBox(height: 24),
+
+                                  // Action Buttons
+                                  if (step == SignupStep.confirm)
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: OutlinedButton(
+                                            onPressed: _handleReject,
+                                            child: const Text('ಬದಲಾಯಿಸಿ'),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: ElevatedButton.icon(
+                                            onPressed: _handleConfirm,
+                                            icon: const Icon(Icons.check),
+                                            label: const Text('ದೃಢೀಕರಿಸಿ'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                  const SizedBox(height: 16),
+
+                                  OutlinedButton(
+                                    onPressed: _skipToDemo,
+                                    child: const Text('ಡೆಮೊ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Add these helper methods:
+  String _getSubtitle() {
+    switch (step) {
+      case SignupStep.username:
+        return 'ನಿಮ್ಮ ಹೆಸರನ್ನು ಹೇಳಿ';
+      case SignupStep.lmp:
+        return 'ನಿಮ್ಮ ಕೊನೆಯ ಮುಟ್ಟಿನ ದಿನಾಂಕವನ್ನು ಹೇಳಿ';
+      case SignupStep.confirm:
+        return 'ಮಾಹಿತಿಯನ್ನು ದೃಢೀಕರಿಸಿ';
+    }
+  }
+
+  Widget _buildProgressStep(int stepNumber, String label, bool isCompleted) {
+    return Column(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isCompleted ? const Color(0xFF00796B) : Colors.grey.shade300,
+          ),
+          child: Center(
+            child: Text(
+              stepNumber.toString(),
+              style: TextStyle(
+                color: isCompleted ? Colors.white : Colors.grey.shade600,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: isCompleted ? const Color(0xFF00796B) : Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.black54,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 16,
+              color: Color(0xFF00796B),
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   void dispose() {
     ttsService.stop();
     speechService.cancel();
@@ -410,180 +661,5 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
     if (mounted) {
       Navigator.pushReplacementNamed(context, '/dashboard');
     }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    String subtitle;
-    switch (step) {
-      case SignupStep.username:
-        subtitle = 'ನಿಮ್ಮ ಹೆಸರನ್ನು ಹೇಳಿ';
-        break;
-      case SignupStep.lmp:
-        subtitle = 'ನಿಮ್ಮ ಕೊನೆಯ ಮುಟ್ಟಿನ ದಿನಾಂಕವನ್ನು ಹೇಳಿ';
-        break;
-      case SignupStep.confirm:
-        subtitle = 'ಮಾಹಿತಿಯನ್ನು ದೃಢೀಕರಿಸಿ';
-        break;
-    }
-
-    return Scaffold(
-      body: SafeArea(
-        child: Container(
-          width: double.infinity,
-          height: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(colors: [Color(0xFFF7FAFC), Color(0xFFFFFFFF)], begin: Alignment.topCenter, end: Alignment.bottomCenter),
-          ),
-          child: Column(
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: TextButton.icon(
-                  onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.arrow_back),
-                  label: const Text('ಹಿಂದೆ'),
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 480),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('ಖಾತೆ ರಚಿಸಿ', style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
-                        const SizedBox(height: 8),
-                        Text(subtitle, style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey[700])),
-                        const SizedBox(height: 18),
-
-                        Card(
-                          elevation: 4,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      height: 8,
-                                      width: 80,
-                                      decoration: BoxDecoration(
-                                        color: username.isNotEmpty ? theme.primaryColor : Colors.grey[300],
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Container(
-                                      height: 8,
-                                      width: 80,
-                                      decoration: BoxDecoration(
-                                        color: lmpDate != null ? theme.primaryColor : Colors.grey[300],
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-
-                                if (username.isNotEmpty)
-                                  Column(
-                                    children: [
-                                      const Align(alignment: Alignment.centerLeft, child: Text('ಹೆಸರು', style: TextStyle(fontWeight: FontWeight.w600))),
-                                      const SizedBox(height: 6),
-                                      Text(username, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                      const SizedBox(height: 12),
-                                    ],
-                                  ),
-
-                                if (lmpDate != null)
-                                  Column(
-                                    children: [
-                                      const Align(alignment: Alignment.centerLeft, child: Text('ಕೊನೆಯ ಮುಟ್ಟಿನ ದಿನಾಂಕ', style: TextStyle(fontWeight: FontWeight.w600))),
-                                      const SizedBox(height: 6),
-                                      Text(_formatDateKn(lmpDate!), textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                      const SizedBox(height: 12),
-                                    ],
-                                  ),
-
-                                if (transcript.isNotEmpty)
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(12),
-                                    decoration: BoxDecoration(color: theme.primaryColor.withAlpha(20), borderRadius: BorderRadius.circular(8)),
-                                    child: Text('"$transcript"', textAlign: TextAlign.center, style: const TextStyle(fontStyle: FontStyle.italic)),
-                                  ),
-
-                                const SizedBox(height: 12),
-
-                                Column(
-                                  children: [
-                                    GestureDetector(
-                                      onTap: _toggleListening,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(14),
-                                        decoration: BoxDecoration(
-                                          shape: BoxShape.circle,
-                                          color: isListening ? Colors.red : theme.primaryColor,
-                                          boxShadow: [BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 8)],
-                                        ),
-                                        child: Icon(isListening ? Icons.mic : Icons.mic_none, color: Colors.white, size: 28),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      isListening ? '🔴 Recording...' : (isSpeaking ? '🔊 Speaking...' : '🎤 Tap to speak'),
-                                      style: const TextStyle(fontWeight: FontWeight.w600),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 14),
-
-                                if (step == SignupStep.confirm)
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: OutlinedButton(
-                                          onPressed: _handleReject,
-                                          child: const Text('ಬದಲಾಯಿಸಿ'),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: ElevatedButton.icon(
-                                          onPressed: _handleConfirm,
-                                          icon: const Icon(Icons.check),
-                                          label: const Text('ದೃಢೀಕರಿಸಿ'),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-
-                                const SizedBox(height: 8),
-
-                                OutlinedButton(
-                                  onPressed: _skipToDemo,
-                                  child: const Text('ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಹೋಗಿ (ಡೆಮೊ)'),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

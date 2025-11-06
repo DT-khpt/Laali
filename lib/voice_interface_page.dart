@@ -365,21 +365,19 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                         GestureDetector(
                           onTap: _toggleListening,
                           child: Container(
+                            width: 80,
+                            height: 80,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: isListening
-                                  ? const LinearGradient(colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)])
-                                  : null,
-                              color: isListening ? null : theme.primaryColor,
+                              color: isListening ? const Color(0xFFD32F2F) : const Color(0xFF1976D2),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withAlpha(38),
+                                  color: const Color(0x33000000),
                                   blurRadius: 8,
                                   offset: const Offset(0, 4),
                                 ),
                               ],
                             ),
-                            padding: const EdgeInsets.all(14),
                             child: Icon(
                               isListening ? Icons.mic : Icons.mic_none,
                               size: 32,

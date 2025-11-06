@@ -18,13 +18,13 @@ class TtsService {
     try {
       // Attempt to set a sensible default language, but verify it's supported.
       await setLanguage('kn-IN');
-      // SLOWER speeds for better clarity (set to a natural speaking rate)
+      // Use very slow speed by default for clarity on important onboarding prompts
+      await setVerySlowSpeed();
       await _tts.setPitch(1.0);    // Normal pitch
-      await _tts.setSpeechRate(0.55); // Natural default rate
       await _tts.setVolume(1.0);
       await _tts.awaitSpeakCompletion(true);
       _initialized = true;
-      debugPrint('TTS configured: language set and defaults applied');
+      debugPrint('TTS configured: language set and defaults applied (very slow)');
     } catch (e) {
       // Don't crash the app if configuration fails; log for debugging.
       debugPrint('TTS configuration error: $e');
@@ -142,9 +142,20 @@ class TtsService {
   Future<void> setVolume(double volume) => _tts.setVolume(volume);
 
   /// Set very slow speed for important information
+  Future<void> setVerySlowSpeed() async {
+    try {
+      await _tts.setSpeechRate(0.3); // much slower for clarity
+      await _tts.setPitch(0.95);
+    } catch (e) {
+      debugPrint('Error setting very slow speed: $e');
+    }
+  }
+
+  /// Slightly slow speed for clearer instructions (used by some pages)
   Future<void> setSlowSpeed() async {
     try {
-      await _tts.setSpeechRate(0.45); // slightly slow but natural
+      await _tts.setSpeechRate(0.40);
+      await _tts.setPitch(1.0);
     } catch (e) {
       debugPrint('Error setting slow speed: $e');
     }
@@ -153,7 +164,8 @@ class TtsService {
   /// Normal conversation speed
   Future<void> setNormalSpeed() async {
     try {
-      await _tts.setSpeechRate(0.55);
+      await _tts.setSpeechRate(0.45);
+      await _tts.setPitch(1.0);
     } catch (e) {
       debugPrint('Error setting normal speed: $e');
     }
@@ -165,6 +177,21 @@ class TtsService {
       await _tts.setSpeechRate(0.7);
     } catch (e) {
       debugPrint('Error setting fast speed: $e');
+    }
+  }
+
+  /// Speak with natural pauses between sentences
+  Future<void> speakWithPauses(String text) async {
+    if (text.isEmpty) return;
+    // Split on sentence enders and keep them similar; remove trailing empties
+    final sentences = text.split(RegExp(r'(?<=[.?!])\s+'));
+    for (final s in sentences) {
+      final trimmed = s.trim();
+      if (trimmed.isNotEmpty) {
+        await speak(trimmed);
+        // natural pause
+        await Future.delayed(const Duration(milliseconds: 700));
+      }
     }
   }
 }

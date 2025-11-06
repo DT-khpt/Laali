@@ -171,6 +171,60 @@ class SpeechService {
     }
   }
 
+  /// Start listening with retries and progressive timeouts. This is an
+  /// enhanced helper that increases timeout per attempt and surfaces failures
+  /// via the optional onFailure callback.
+  Future<void> startListeningWithEnhancedRetry(
+    void Function(String text, bool isFinal) onResult, {
+    String localeId = 'kn_IN',
+    int maxRetries = 3,
+    Duration initialTimeout = const Duration(seconds: 8),
+    bool partialResults = true,
+    void Function()? onFailure,
+  }) async {
+    for (int attempt = 0; attempt < maxRetries; attempt++) {
+      var gotFinal = false;
+      try {
+        final timeout = initialTimeout + Duration(seconds: attempt * 2);
+        debugPrint('Enhanced listen attempt ${attempt + 1} timeout: ${timeout.inSeconds}s');
+
+        await startListening((text, isFinal) {
+          try {
+            onResult(text, isFinal);
+            if (isFinal) gotFinal = true;
+          } catch (e) {
+            debugPrint('onResult handler error in enhanced retry: $e');
+          }
+        }, localeId: localeId, partialResults: partialResults);
+
+        // Wait up to timeout for a final result to be set by the callback.
+        final waitUntil = DateTime.now().add(timeout);
+        while (DateTime.now().isBefore(waitUntil) && !gotFinal) {
+          await Future.delayed(const Duration(milliseconds: 200));
+        }
+      } catch (e) {
+        debugPrint('Speech attempt ${attempt + 1} failed: $e');
+      }
+
+      if (gotFinal) return; // success
+
+      // stop and retry if allowed
+      try {
+        await stop();
+      } catch (_) {}
+
+      if (attempt < maxRetries - 1) {
+        debugPrint('Retrying speech listen (enhanced) attempt ${attempt + 2} of $maxRetries');
+        await Future.delayed(Duration(milliseconds: 400 + 100 * attempt));
+        continue;
+      } else {
+        debugPrint('All enhanced speech listen attempts failed');
+        if (onFailure != null) onFailure();
+        return;
+      }
+    }
+  }
+
   Future<void> stop() async {
     try {
       await _stt.stop();

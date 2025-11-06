@@ -177,7 +177,7 @@ class _WelcomePageState extends State<WelcomePage> {
       final ok = await speechService.initialize();
       if (!ok) {
         if (!mounted) return;
-        await _speak('ಕ್ಷಮಿಸಿ, ಮಾತಿನ ಗುರುತಿಸುವಿಕೆ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ಮೈಕ್ರೊಫೋನ್ ಅನುಮತಿಗಳನ್ನು ಪರಿಶೀಲಿಸಿ.');
+        await _speak('ಕ್ಷಮಿಸಿ,ನಿಮ್ಮ ಮಾತು ಕೇಳಿಸುತಿಲ್ಲ. ದಯವಿಟ್ಟು ಮೈಕ್ರೊಫೋನ್ ಅನುಮತಿಗಳನ್ನು ಪರಿಶೀಲಿಸಿ.');
         if (mounted) {
           setState(() {
             _speechReady = false;
@@ -352,20 +352,15 @@ class _WelcomePageState extends State<WelcomePage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Container(
           width: double.infinity,
           height: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFFF7FAFC), Color(0xFFFFFFFF)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
+          padding: const EdgeInsets.all(24),
           child: Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 480),
@@ -374,57 +369,67 @@ class _WelcomePageState extends State<WelcomePage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Logo/Icon Section
                     Container(
-                      height: 110,
-                      width: 110,
+                      height: screenHeight * 0.15,
+                      width: screenHeight * 0.15,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [Color(0xFF56CCF2), Color(0xFF2F80ED)]),
+                        color: const Color(0x1A00796B), // 10% teal
                         shape: BoxShape.circle,
-                        boxShadow: [BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 10)],
                       ),
-                      child: const Center(child: Icon(Icons.favorite, size: 48, color: Colors.white)),
+                      child: Center(
+                        child: Icon(
+                          Icons.favorite,
+                          size: screenHeight * 0.075,
+                          color: const Color(0xFFFD0681),
+                        ),
+                      ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 32),
+
+                    // Title Section
                     Text(
                       'ಮಾತೃತ್ವ ಆರೋಗ್ಯ ಸಹಾಯಕ',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                      style: theme.textTheme.displayMedium?.copyWith(fontSize: screenHeight * 0.03),
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
+
                     Text(
-                      'ನಿಮ್ಮ ಧ್ವನಿ-ಮಾರ್ಗದರ್ಶಿತ ಗರ್ಭಾವಸ್ಥೆಯ ಪ್ರಯಾಣ',
+                      'ನಿಮ್ಮ ಗರ್ಭಾವಸ್ಥೆಯ ಪ್ರಯಾಣದ ಧ್ವನಿ-ಮಾರ್ಗದರ್ಶಿತ ',
                       textAlign: TextAlign.center,
-                      style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey[700]),
+                      style: theme.textTheme.bodyMedium?.copyWith(fontSize: screenHeight * 0.018),
                     ),
                     const SizedBox(height: 8),
+                    // Microphone readiness status (reads _speechReady so field is used)
                     Text(
                       _speechReady ? 'ಮೈಕ್ರೊಫೋನ್ ಸಿದ್ಧವಾಗಿದೆ' : 'ಮೈಕ್ರೊಫೋನ್ ಸಿದ್ಧವಿಲ್ಲ',
                       style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                     ),
-                    const SizedBox(height: 26),
+                    const SizedBox(height: 20),
 
+                    // If we detected a returning user, show the confirmation card
                     if (_showReturningUserOptions && _returningUserName != null)
                       Card(
                         elevation: 4,
+                        color: const Color(0xFFE8F5F2), // very light teal
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        color: Colors.green[50],
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
                             children: [
                               Text(
-                                '👋 ನಮಸ್ಕಾರ $_returningUserName!',
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green[800]),
+                                '👋  ನಮಸ್ಕಾರ ${_returningUserName!}!',
+                                style: theme.textTheme.titleLarge?.copyWith(color: const Color(0xFF00796B)),
                               ),
                               const SizedBox(height: 8),
-                              Text('ನಿಮ್ಮನ್ನು ಮತ್ತೆ ನೋಡಿ ಸಂತೋಷ! ಮುಂದುವರೆಯಲು ಬಯಸುವಿರಾ?', textAlign: TextAlign.center, style: TextStyle(color: Colors.green[700])),
-                              const SizedBox(height: 16),
+                              Text('ನಿಮ್ಮನ್ನು ಮತ್ತೆ ನೋಡಿಕೊಂಡು ಸಂತೋಷ. ಮುಂದುವರೆಯಲು ಬಯಸುವಿರಾ?', textAlign: TextAlign.center, style: theme.textTheme.bodyLarge),
+                              const SizedBox(height: 12),
                               Row(
                                 children: [
                                   Expanded(
                                     child: OutlinedButton(
                                       onPressed: _continueAsExistingUser,
-                                      style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.green)),
                                       child: const Text('ಹೌದು, ಮುಂದುವರೆಸಿ'),
                                     ),
                                   ),
@@ -432,116 +437,135 @@ class _WelcomePageState extends State<WelcomePage> {
                                   Expanded(
                                     child: OutlinedButton(
                                       onPressed: _startAsNewUser,
-                                      style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.orange)),
                                       child: const Text('ಹೊಸ ಬಳಕೆದಾರ'),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 10),
                               OutlinedButton(
                                 onPressed: _verifyWithVoice,
-                                style: OutlinedButton.styleFrom(side: const BorderSide(color: Colors.blue)),
                                 child: _isIdentifyingUser
-                                    ? const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
-                                    SizedBox(width: 8),
-                                    Text('ಗುರುತಿಸುತ್ತಿದೆ...'),
-                                  ],
-                                )
+                                    ? const Row(mainAxisSize: MainAxisSize.min, children: [SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)), SizedBox(width: 8), Text('ಗುರುತಿಸುತ್ತಿದೆ...')])
                                     : const Text('ಧ್ವನಿಯಿಂದ ದೃಢೀಕರಿಸಿ'),
                               ),
                             ],
                           ),
                         ),
+                      )
+                    else
+                    // Voice Interface Card (Welcome large mic)
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    if (!_showReturningUserOptions) ...[
-                      Card(
-                        elevation: 6,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(28),
-                          child: Column(
-                            children: [
-                              Text(
-                                isSpeaking ? 'ಮಾತನಾಡುತ್ತಿದೆ...' : 'ಮೈಕ್ರೊಫೋನ್ ಟ್ಯಾಪ್ ಮಾಡಿ ಮತ್ತು ಮಾತನಾಡಿ',
-                                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-                              ),
-                              const SizedBox(height: 12),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            Text(
+                              'ಧ್ವನಿ ಸಹಾಯಕ',
+                              style: theme.textTheme.titleLarge,
+                            ),
+                            const SizedBox(height: 16),
 
-                              if (transcript.isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                  child: Text('"$transcript"', style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 16)),
+                            if (transcript.isNotEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                margin: const EdgeInsets.only(bottom: 16),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x0D1976D2), // ~5% blue
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0x331976D2)),
                                 ),
-
-                              const SizedBox(height: 12),
-
-                              GestureDetector(
-                                onTap: _toggleListening,
-                                child: Container(
-                                  width: 180,
-                                  height: 180,
-                                  alignment: Alignment.center,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isListening ? Colors.red : theme.colorScheme.primary,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withAlpha(30),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                    border: Border.all(color: const Color.fromRGBO(255, 255, 255, 0.14), width: 3),
-                                  ),
-                                  child: Icon(
-                                    isListening ? Icons.mic : Icons.mic_none,
-                                    color: Colors.white,
-                                    size: 80,
+                                child: Text(
+                                  '"$transcript"',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontStyle: FontStyle.italic,
+                                    color: const Color(0xFF1976D2),
+                                    fontSize: screenHeight * 0.018,
                                   ),
                                 ),
                               ),
 
-                              const SizedBox(height: 14),
-                              Text(
-                                '"ಅನಾಮಧೇಯ" ಅಥವಾ "ಖಾತೆ ರಚಿಸಿ" ಎಂದು ಹೇಳಿ',
-                                style: theme.textTheme.bodyLarge?.copyWith(color: Colors.grey[700], fontSize: 16),
-                                textAlign: TextAlign.center,
+                            GestureDetector(
+                              onTap: _toggleListening,
+                              child: Container(
+                                width: screenHeight * 0.2,
+                                height: screenHeight * 0.2,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isListening ? const Color(0xFFD32F2F) : const Color(0xFF1976D2),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0x33000000),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  isListening ? Icons.mic : Icons.mic_none,
+                                  color: Colors.white,
+                                  size: screenHeight * 0.08,
+                                ),
                               ),
-                            ],
-                          ),
+                            ),
+                            const SizedBox(height: 16),
+
+                            Text(
+                              isListening ? 'ಕೇಳುತ್ತಿದೆ... ಮಾತನಾಡಿ' : (isSpeaking ? 'ಮಾತನಾಡುತ್ತಿದೆ...' : 'ಮಾತನಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ'),
+                              style: theme.textTheme.bodyLarge?.copyWith(fontSize: screenHeight * 0.022),
+                            ),
+                            const SizedBox(height: 8),
+
+                            Text(
+                              '"ಅನಾಮಧೇಯ" ಅಥವಾ "ಖಾತೆ ರಚಿಸಿ" ಎಂದು ಹೇಳಿ',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          ],
                         ),
                       ),
+                    ),
 
-                      const SizedBox(height: 22),
+                    const SizedBox(height: 32),
 
-                      Column(
-                        children: [
-                          OutlinedButton.icon(
+                    // Action Buttons
+                    Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
                             onPressed: isSpeaking ? null : _handleAnonymous,
-                            icon: const Icon(Icons.person_off, size: 24),
+                            icon: const Icon(Icons.person_outline),
                             label: const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16.0),
-                              child: Text('ಅನಾಮಧೇಯವಾಗಿ ಉಳಿಯಿರಿ', style: TextStyle(fontSize: 18)),
+                              padding: EdgeInsets.symmetric(vertical: 12.0),
+                              child: Text('ಅನಾಮಧೇಯವಾಗಿ ಉಳಿಯಿರಿ'),
                             ),
-                            style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(64)),
                           ),
-                          const SizedBox(height: 12),
-                          ElevatedButton.icon(
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
                             onPressed: isSpeaking ? null : _handleCreateAccount,
-                            icon: const Icon(Icons.person_add, size: 24),
+                            icon: const Icon(Icons.person_add_alt_1),
                             label: const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 16.0),
-                              child: Text('ಖಾತೆ ರಚಿಸಿ', style: TextStyle(fontSize: 18)),
+                              padding: EdgeInsets.symmetric(vertical: 12.0),
+                              child: Text('ಖಾತೆ ರಚಿಸಿ'),
                             ),
-                            style: ElevatedButton.styleFrom(minimumSize: const Size.fromHeight(64)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF00796B),
+                              foregroundColor: Colors.white,
+                            ),
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),
