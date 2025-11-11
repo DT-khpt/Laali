@@ -1,8 +1,11 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:mcp/services/audio_player_service.dart' show audioService;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/tts_service.dart';
 import 'services/speech_service.dart';
-import 'services/ai_service.dart';
 
 class VoiceInterfacePage extends StatefulWidget {
   const VoiceInterfacePage({super.key});
@@ -20,8 +23,10 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   bool isLoadingAI = false;
   String? userMode;
 
-  // Guard to prevent overlapping speak/listen flows
-  bool _isAwaitingResponse = false;
+  // N8N Configuration - UPDATE THIS WITH YOUR N8N WEBHOOK URL
+  static const String n8nWebhookUrl = 'https://squshier-dorie-tensorial.ngrok-free.dev/webhook-test/user-message';
+  static const String n8nApiKey = ''; // Only if your n8n requires authentication
+
 
   @override
   void initState() {
@@ -29,23 +34,15 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     _initTts();
     _loadUserMode();
     _addWelcomeMessage();
-    // Auto-start listening after short delay
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted && !isListening && !isSpeaking && !isLoadingAI && !_isAwaitingResponse) {
-        _toggleListening();
-      }
-    });
-    // Speak a welcome message for the voice interface
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(seconds: 1), () {
-        _speakWelcomeMessage();
-      });
+
+    // Auto-greet but don't auto-listen
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _speak('ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಧ್ವನಿ ಸಹಾಯಕ. ನಿಮ್ಮ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಲು ಮೈಕ್ರೊಫೋನ್ ಟ್ಯಾಪ್ ಮಾಡಿ.');
     });
   }
 
-  // Add a small welcome message in the chat history (non-blocking)
   void _addWelcomeMessage() {
-    const welcomeText = 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಧ್ವನಿ ಸಹಾಯಕ, — ಸಮಸ್ಯೆಗಳನ್ನು ಹೇಳಿ ಅಥವಾ ಪ್ರಶ್ನೆ ಕೇಳಿ.';
+    const welcomeText = 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಧ್ವನಿ ಸಹಾಯಕ — ಸಮಸ್ಯೆಗಳನ್ನು ಹೇಳಿ ಅಥವಾ ಪ್ರಶ್ನೆ ಕೇಳಿ.';
     final msg = Message(role: Role.assistant, content: welcomeText, timestamp: DateTime.now());
     if (mounted) {
       setState(() {
@@ -56,41 +53,21 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
 
   Future<void> _initTts() async {
     await ttsService.setLanguage('kn-IN');
-    await ttsService.setSlowSpeed(); // use slower speed for clarity
+    await ttsService.setSpeechRate(0.4);
     await ttsService.setPitch(1.0);
 
     ttsService.setStartHandler(() {
-      if (mounted) setState(() => isSpeaking = true);
+      setState(() => isSpeaking = true);
     });
     ttsService.setCompletionHandler(() {
-      // TTS finished speaking — mark as not speaking and auto-restart mic
-      if (mounted) setState(() => isSpeaking = false);
-      // Small delay to let audio channel settle, then start listening if idle
-      Future.delayed(const Duration(milliseconds: 500), () async {
-        if (!mounted) return;
-        // Safety checks: only auto-start if assistant just spoke (messages not empty),
-        // and no AI processing or manual listening is happening.
-        if (!isListening && !isLoadingAI && messages.isNotEmpty && !_isAwaitingResponse) {
-          // ensure recognizer is initialized
-          final ok = await speechService.initialize();
-          if (ok) {
-            // small extra delay to be safe on some devices
-            await Future.delayed(const Duration(milliseconds: 200));
-            if (!mounted) return;
-            if (!isListening && !_isAwaitingResponse) {
-              _toggleListening();
-            }
-          }
-        }
-      });
+      setState(() => isSpeaking = false);
     });
     ttsService.setErrorHandler((err) {
-      if (mounted) setState(() => isSpeaking = false);
+      setState(() => isSpeaking = false);
       debugPrint('TTS error: $err');
     });
   }
 
-  /// Ensure the microphone/speech recognizer is ready (requests permissions via initialize).
   Future<bool> _checkMicrophonePermission() async {
     try {
       final available = await speechService.initialize();
@@ -114,10 +91,6 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
 
   Future<void> _speak(String text) async {
     try {
-      // stop any ongoing recognition to avoid collisions
-      try {
-        await speechService.stop();
-      } catch (_) {}
       await ttsService.speak(text);
     } catch (e) {
       debugPrint('TTS speak error: $e');
@@ -125,61 +98,53 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   }
 
   Future<void> _toggleListening() async {
-    if (isSpeaking || isLoadingAI) {
-      debugPrint('Cannot listen - busy speaking or processing AI');
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) _toggleListening();
+    if (isSpeaking) {
+      await _speak('ದಯವಿಟ್ಟು ಕೆಲವು ಕ್ಷಣಗಳಲ್ಲಿ ಪ್ರಯತ್ನಿಸಿ. ನಾನು ಇನ್ನೂ ಮಾತನಾಡುತ್ತಿದ್ದೇನೆ.');
+      return;
+    }
+
+    if (isLoadingAI) {
+      await _speak('ದಯವಿಟ್ಟು ಪ್ರಕ್ರಿಯೆ ಪೂರ್ಣಗೊಳ್ಳುವವರೆಗೆ ಕಾಯಿರಿ.');
+      return;
+    }
+
+    if (!isListening) {
+      final ok = await _checkMicrophonePermission();
+      if (!ok) return;
+
+      debugPrint('Starting speech recognition...');
+      setState(() {
+        isListening = true;
+        currentTranscript = '';
       });
-      return;
-    }
 
-    // Avoid starting if we're already in a listen flow
-    if (_isAwaitingResponse || speechService.isListening) {
-      debugPrint('Already listening or waiting - ignoring toggle');
-      return;
-    }
+      try {
+        await speechService.startListeningWithRetry((text, isFinal) async {
+          debugPrint('Speech result: "$text" final: $isFinal');
+          if (!mounted) return;
+          setState(() => currentTranscript = text);
 
-    // Ensure microphone permission and speech service availability
-    final ok = await _checkMicrophonePermission();
-    if (!ok) return;
-
-    // Ensure any previous listeners are stopped
-    try {
-      await speechService.stop();
-    } catch (_) {}
-
-    debugPrint('Starting speech recognition...');
-    setState(() {
-      isListening = true;
-      currentTranscript = '';
-    });
-
-    _isAwaitingResponse = true;
-
-    try {
-      await speechService.startListeningWithEnhancedRetry((text, isFinal) async {
-        debugPrint('Speech result: "$text" final: $isFinal');
-        if (!mounted) return;
-        setState(() => currentTranscript = text);
-
-        if (isFinal || text.trim().length > 2) {
-          debugPrint('Final speech result or long partial: $text');
+          if (isFinal && text.isNotEmpty) {
+            debugPrint('Final speech result: $text');
+            _onSpeechResult(text);
+          } else if (isFinal) {
+            debugPrint('Empty final result');
+            if (mounted) setState(() => isListening = false);
+          }
+        }, localeId: 'kn-IN', retries: 2, attemptTimeout: const Duration(seconds: 10), onFailure: () async {
+          debugPrint('Speech recognition failed after retries');
           if (mounted) setState(() => isListening = false);
-          _isAwaitingResponse = false;
-          // handle the user input
-          _onSpeechResult(text);
-        }
-      }, localeId: 'kn-IN', maxRetries: 2, initialTimeout: const Duration(seconds: 10), onFailure: () async {
-        debugPrint('Speech recognition failed after retries');
+          await _speak('ಕ್ಷಮಿಸಿ, ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.');
+        });
+      } catch (e) {
+        debugPrint('Speech listening error: $e');
         if (mounted) setState(() => isListening = false);
-        _isAwaitingResponse = false;
-        await _speak('ಕ್ಷಮಿಸಿ, ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.');
-      });
-    } catch (e) {
-      debugPrint('Speech listening error: $e');
-      if (mounted) setState(() => isListening = false);
-      _isAwaitingResponse = false;
-      await _speak('ಕ್ಷಮಿಸಿ, ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ಸೇವೆಯಲ್ಲಿ ಸಮಸ್ಯೆ ಉಂಟಾಗಿದೆ.');
+        await _speak('ಕ್ಷಮಿಸಿ, ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ಸೇವೆಯಲ್ಲಿ ಸಮಸ್ಯೆ ಉಂಟಾಗಿದೆ.');
+      }
+    } else {
+      debugPrint('Stopping speech recognition...');
+      await speechService.stop();
+      setState(() => isListening = false);
     }
   }
 
@@ -192,7 +157,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     });
     _scrollToBottom();
 
-    // Show loading message while AI processes
+    // Show loading message while n8n processes
     final loadingMessage = Message(role: Role.assistant, content: 'ಪ್ರಕ್ರಿಯೆಗೊಳಿಸುತ್ತಿದೆ...', timestamp: DateTime.now());
     setState(() {
       messages = [...messages, loadingMessage];
@@ -201,22 +166,18 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     _scrollToBottom();
 
     try {
-      final response = await aiService.getResponse(text, userMode ?? 'general');
+      // Call n8n workflow to get audio file
+      await _callN8NWorkflowAndPlay(text);
 
-      // Replace loading message with actual response
+      // Update message with success indication
       setState(() {
         messages = messages.sublist(0, messages.length - 1);
-        messages = [...messages, Message(role: Role.assistant, content: response, timestamp: DateTime.now())];
+        messages = [...messages, Message(role: Role.assistant, content: '✅ ಉತ್ತರ ಪಡೆದುಕೊಂಡಿದೆ', timestamp: DateTime.now())];
         isLoadingAI = false;
       });
-      _scrollToBottom();
 
-      // Speak response. TTS completion handler will auto-restart listening safely.
-      await _speak(response);
-
-      // IMPROVED: Let TTS completion handler decide when to restart listening
     } catch (e) {
-      debugPrint('AI response error: $e');
+      debugPrint('N8N response error: $e');
       setState(() {
         messages = messages.sublist(0, messages.length - 1);
         messages = [...messages, Message(role: Role.assistant, content: 'ಕ್ಷಮಿಸಿ, ಪ್ರತಿಕ್ರಿಯೆ ಪಡೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.', timestamp: DateTime.now())];
@@ -224,14 +185,347 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       });
       _scrollToBottom();
       await _speak('ಕ್ಷಮಿಸಿ, ಪ್ರತಿಕ್ರಿಯೆ ಪಡೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.');
-
-      // Restart listening after error
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted && !isListening && !isSpeaking && !isLoadingAI && !_isAwaitingResponse) {
-          _toggleListening();
-        }
-      });
     }
+  }
+
+  /// Call n8n workflow and handle the response
+  Future<void> _callN8NWorkflowAndPlay(String userMessage) async {
+    try {
+      final requestBody = {
+        'userMessage': userMessage,
+        'userMode': userMode ?? 'general',
+        'language': 'kannada',
+        'timestamp': DateTime.now().toIso8601String(),
+        'responseType': 'audio',
+      };
+
+      final headers = {
+        'Content-Type': 'application/json',
+        if (n8nApiKey.isNotEmpty) 'Authorization': 'Bearer $n8nApiKey',
+      };
+
+      final response = await http.post(
+        Uri.parse(n8nWebhookUrl),
+        headers: headers,
+        body: jsonEncode(requestBody),
+      ).timeout(const Duration(seconds: 30));
+
+      // Debug: Print response details
+      _debugN8NResponse(response);
+
+      if (response.statusCode == 200) {
+        await _handleN8NResponse(response);
+      } else {
+        throw Exception('ಸರ್ವರ್ ತಪ್ಪು: ${response.statusCode}');
+      }
+    } catch (e) {
+      await _speak('ಕ್ಷಮಿಸಿ, ಪ್ರತಿಕ್ರಿಯೆ ಪಡೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.');
+      rethrow;
+    }
+  }
+
+  /// Handle n8n response - FIXED VERSION
+  Future<void> _handleN8NResponse(http.Response response) async {
+    try {
+      final contentType = response.headers['content-type']?.toLowerCase() ?? '';
+
+      debugPrint('=== RESPONSE ANALYSIS ===');
+      debugPrint('Content-Type: $contentType');
+      debugPrint('Body length: ${response.bodyBytes.length} bytes');
+
+      // **FIX: Check if response is JSON or raw audio first**
+      if (contentType.contains('application/json') || _looksLikeJson(response.bodyBytes)) {
+        await _handleJsonResponse(response);
+      } else if (contentType.contains('audio/')) {
+        // Direct audio response
+        await _playAudioFromBytes(response.bodyBytes, contentType);
+      } else {
+        // Unknown content type - try both approaches
+        await _handleUnknownResponse(response.bodyBytes, contentType);
+      }
+    } catch (e) {
+      debugPrint('N8N response handling error: $e');
+      rethrow;
+    }
+  }
+
+  /// Check if response looks like JSON
+  bool _looksLikeJson(List<int> bytes) {
+    try {
+      if (bytes.isEmpty) return false;
+      final firstChar = utf8.decode([bytes[0]]);
+      return firstChar == '{' || firstChar == '[';
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Handle JSON response - FIXED VERSION
+  Future<void> _handleJsonResponse(http.Response response) async {
+    try {
+      final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
+      debugPrint('JSON Response type: ${jsonResponse.runtimeType}');
+
+      if (jsonResponse is Map) {
+        debugPrint('Response keys: ${jsonResponse.keys.toList()}');
+
+        // **FIX: Your n8n returns audio as Buffer object**
+        if (jsonResponse['type'] == 'Buffer' && jsonResponse['data'] is List) {
+          await _handleBufferObject(jsonResponse);
+        }
+        // Check for direct audio data in other fields
+        else if (jsonResponse['audio'] != null || jsonResponse['data'] != null) {
+          await _handleAudioDataInJson(jsonResponse);
+        }
+        // Check for text response
+        else if (jsonResponse['text'] != null || jsonResponse['output'] != null) {
+          await _handleTextResponse(jsonResponse);
+        }
+        else {
+          await _extractAndSpeakText(jsonResponse);
+        }
+      } else if (jsonResponse is List && jsonResponse.isNotEmpty) {
+        // Handle array response
+        await _handleJsonResponse(http.Response(
+          jsonEncode(jsonResponse[0]),
+          response.statusCode,
+          headers: response.headers,
+        ));
+      } else {
+        throw Exception('ಅಮಾನ್ಯ JSON ಪ್ರತಿಕ್ರಿಯೆ');
+      }
+    } catch (e) {
+      debugPrint('JSON handling error: $e');
+      rethrow;
+    }
+  }
+
+  /// Handle Buffer object from n8n - IMPROVED VERSION
+  Future<void> _handleBufferObject(Map bufferObject) async {
+    try {
+      final bufferData = bufferObject['data'];
+      if (bufferData is List) {
+        // Convert List<dynamic> to List<int>
+        final audioBytes = bufferData.cast<int>().toList();
+        debugPrint('🎵 Buffer data length: ${audioBytes.length} bytes');
+
+        if (audioBytes.isEmpty) {
+          throw Exception('ಖಾಲಿ ಆಡಿಯೋ ಡೇಟಾ');
+        }
+
+        // **DEBUG: Check audio data**
+        _debugAudioData(audioBytes);
+
+        // Play the audio
+        await _playAudioFromBytes(audioBytes, 'audio/mpeg');
+      } else {
+        throw Exception('ಅಮಾನ್ಯ ಬಫರ್ ಡೇಟಾ');
+      }
+    } catch (e) {
+      debugPrint('Buffer object handling error: $e');
+      await _handleTextFallback(bufferObject, 'ಆಡಿಯೋ ಡೇಟಾ ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.');
+    }
+  }
+
+  /// Handle audio data embedded in JSON
+  Future<void> _handleAudioDataInJson(Map jsonResponse) async {
+    try {
+      // Check various possible audio data locations
+      if (jsonResponse['audio'] is Map && jsonResponse['audio']['data'] is List) {
+        await _handleBufferObject(jsonResponse['audio']);
+      } else if (jsonResponse['data'] is List) {
+        final audioBytes = (jsonResponse['data'] as List).cast<int>().toList();
+        await _playAudioFromBytes(audioBytes, 'audio/mpeg');
+      } else if (jsonResponse['audio'] is String) {
+        // Base64 encoded audio
+        await _handleBase64Audio(jsonResponse['audio'], 'audio/mpeg');
+      } else {
+        throw Exception('ಯಾವುದೇ ಆಡಿಯೋ ಡೇಟಾ ಕಂಡುಬಂದಿಲ್ಲ');
+      }
+    } catch (e) {
+      debugPrint('Audio data in JSON handling error: $e');
+      rethrow;
+    }
+  }
+
+  /// Handle text response
+  Future<void> _handleTextResponse(Map jsonResponse) async {
+    try {
+      final textResponse = jsonResponse['text'] ??
+          jsonResponse['output'] ??
+          jsonResponse['message'] ??
+          jsonResponse['response'] ??
+          'ಪ್ರತಿಕ್ರಿಯೆ ಲಭ್ಯವಿಲ್ಲ';
+
+      debugPrint('Text response: $textResponse');
+      await _speak(textResponse.toString());
+    } catch (e) {
+      debugPrint('Text response handling error: $e');
+      throw Exception('ಪ್ರತಿಕ್ರಿಯೆ ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ');
+    }
+  }
+
+  /// Extract and speak text from any response
+  Future<void> _extractAndSpeakText(Map jsonResponse) async {
+    final textContent = _findTextContent(jsonResponse);
+
+    if (textContent.isNotEmpty) {
+      await _speak(textContent);
+    } else {
+      throw Exception('ಯಾವುದೇ ಪಠ್ಯ ಅಥವಾ ಆಡಿಯೋ ಡೇಟಾ ಕಂಡುಬಂದಿಲ್ಲ');
+    }
+  }
+
+  /// Find text content in complex JSON structures
+  String _findTextContent(dynamic data, {int depth = 0}) {
+    if (depth > 5) return '';
+
+    if (data is String) {
+      return data.length < 1000 ? data : '';
+    } else if (data is Map) {
+      final commonTextFields = ['text', 'output', 'message', 'response', 'content', 'transcription', 'answer'];
+
+      for (final field in commonTextFields) {
+        if (data[field] is String && data[field].toString().isNotEmpty) {
+          return data[field].toString();
+        }
+      }
+
+      for (final value in data.values) {
+        final result = _findTextContent(value, depth: depth + 1);
+        if (result.isNotEmpty) return result;
+      }
+    } else if (data is List) {
+      for (final item in data) {
+        final result = _findTextContent(item, depth: depth + 1);
+        if (result.isNotEmpty) return result;
+      }
+    }
+
+    return '';
+  }
+
+  /// Text fallback handler
+  Future<void> _handleTextFallback(Map jsonResponse, String fallbackMessage) async {
+    debugPrint('Using text fallback: $fallbackMessage');
+
+    final textContent = _findTextContent(jsonResponse);
+    if (textContent.isNotEmpty) {
+      await _speak(textContent);
+    } else {
+      await _speak(fallbackMessage);
+    }
+  }
+
+  /// Handle base64 encoded audio data
+  Future<void> _handleBase64Audio(String audioData, String mimeType) async {
+    try {
+      final audioBytes = base64.decode(audioData);
+      await _playAudioFromBytes(audioBytes, mimeType);
+    } catch (e) {
+      debugPrint('Base64 audio handling error: $e');
+      throw Exception('ಆಡಿಯೋ ಡೇಟಾ ಡಿಕೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ');
+    }
+  }
+
+  /// Save audio bytes to temporary file and play it using AudioService - IMPROVED
+  Future<void> _playAudioFromBytes(List<int> audioBytes, String contentType) async {
+    try {
+      setState(() => isSpeaking = true);
+
+      debugPrint('🎵 Attempting to play: ${audioBytes.length} bytes, type: $contentType');
+
+      // Convert List<int> to Uint8List
+      final Uint8List audioData = Uint8List.fromList(audioBytes);
+
+      // **DEBUG: Verify audio data before playing**
+      _debugAudioData(audioBytes);
+
+      // Attempt to play audio
+      await audioService.playAudioBytes(audioData, contentType);
+
+      debugPrint('✅ Audio playback started successfully');
+
+      // Wait for completion with timeout
+      final startTime = DateTime.now();
+      while (audioService.isPlaying) {
+        if (DateTime.now().difference(startTime).inSeconds > 30) {
+          debugPrint('⏰ Audio playback timeout');
+          await audioService.stop();
+          break;
+        }
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
+      debugPrint('✅ Audio playback completed');
+      setState(() => isSpeaking = false);
+
+    } catch (e) {
+      debugPrint('❌ Audio playback error: $e');
+      setState(() => isSpeaking = false);
+
+      // Fallback to TTS
+      await _speak('ಆಡಿಯೋ ಸಮಸ್ಯೆ, ಪಠ್ಯ ಪ್ರತಿಕ್ರಿಯೆ ನೀಡುತ್ತಿದೆ.');
+    }
+  }
+
+  /// Debug method to analyze audio data
+  void _debugAudioData(List<int> audioBytes) {
+    debugPrint('=== AUDIO DATA ANALYSIS ===');
+    debugPrint('Total bytes: ${audioBytes.length}');
+
+    if (audioBytes.length >= 3) {
+      final header = audioBytes.take(3).toList();
+      debugPrint('First 3 bytes: $header');
+
+      // Check for ID3 header (starts with "ID3")
+      if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33) {
+        debugPrint('✅ MP3 with ID3 header detected!');
+      }
+      // Check for MPEG frame sync
+      else if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0) {
+        debugPrint('✅ Raw MPEG audio detected!');
+      } else {
+        debugPrint('⚠️ Unknown audio format');
+      }
+    }
+  }
+
+  /// Handle unknown response types
+  Future<void> _handleUnknownResponse(List<int> bodyBytes, String contentType) async {
+    // Try to detect if it's text
+    try {
+      final text = utf8.decode(bodyBytes);
+      if (text.length < 1000 && !text.contains('�')) {
+        await _speak(text);
+        return;
+      }
+    } catch (e) {
+      // Not valid UTF-8 text
+    }
+
+    // Try to play as audio anyway (last attempt)
+    try {
+      await _playAudioFromBytes(bodyBytes, contentType);
+    } catch (e) {
+      // Final fallback
+      await _speak('ಕ್ಷಮಿಸಿ, ಪ್ರತಿಕ್ರಿಯೆ ಸ್ವೀಕರಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.');
+    }
+  }
+
+  /// Debug method
+  void _debugN8NResponse(http.Response response) {
+    final contentType = response.headers['content-type'] ?? 'unknown';
+    final bodyPreview = response.body.length > 200
+        ? '${response.body.substring(0, 200)}...'
+        : response.body;
+
+    debugPrint('=== N8N Response Debug ===');
+    debugPrint('Status: ${response.statusCode}');
+    debugPrint('Content-Type: $contentType');
+    debugPrint('Body Length: ${response.body.length} bytes');
+    debugPrint('Body Preview: $bodyPreview');
+    debugPrint('========================');
   }
 
   void _scrollToBottom() {
@@ -266,6 +560,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     _scrollController.dispose();
     super.dispose();
   }
+  // In the initState method, replace with this:
+
 
   @override
   Widget build(BuildContext context) {
@@ -373,10 +669,9 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                         decoration: BoxDecoration(color: theme.primaryColor.withAlpha(20), borderRadius: BorderRadius.circular(8)),
                         child: Text('"$currentTranscript"', textAlign: TextAlign.center, style: const TextStyle(fontStyle: FontStyle.italic)),
                       ),
-                    // Debug status line
                     const SizedBox(height: 6),
                     Text(
-                      'Status: ${isListening ? 'Listening' : isSpeaking ? 'Speaking' : isLoadingAI ? 'Processing' : 'Ready'}',
+                      'Status: ${isListening ? 'Listening' : isSpeaking ? 'Playing Audio' : isLoadingAI ? 'Processing' : 'Ready'}',
                       style: const TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                     const SizedBox(height: 8),
@@ -407,7 +702,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          isListening ? 'ಕೇಳುತ್ತಿದೆ...' : (isSpeaking ? 'ಮಾತನಾಡುತ್ತಿದೆ...' : 'ಮಾತನಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ'),
+                          isListening ? 'ಕೇಳುತ್ತಿದೆ...' : (isSpeaking ? 'ಆಡಿಯೋ ಪ್ಲೇ ಆಗುತ್ತಿದೆ...' : 'ಮಾತನಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ'),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -429,13 +724,6 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
         ),
       ),
     );
-  }
-
-  // Speak a short Kannada welcome message when entering the voice interface.
-  Future<void> _speakWelcomeMessage() async {
-    // Wait a tiny bit to ensure TTS is initialized
-    await Future.delayed(const Duration(milliseconds: 200));
-    await _speak('"ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಧ್ವನಿ ಸಹಾಯಕ — ಗರ್ಭಾವಸ್ಥೆ, ಶಿಶು ಆರೈಕೆ ಮತ್ತು ಆರೋಗ್ಯದ ವಿಷಯಗಳಲ್ಲಿ ನಿಮಗೆ ಸಹಾಯ ಮಾಡಲು ಇಲ್ಲಿದ್ದೇನೆ. ಆರೋಗ್ಯಕ್ಕೆ ಸಂಬಂಧಿಸಿದ ಯಾವುದೇ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಿ, ನಾನು ಸದಾ ನಿಮ್ಮೊಂದಿಗೆ ಸಹಾಯ ಮಾಡಲು ಸಿದ್ಧನಾಗಿದ್ದೇನೆ."');
   }
 }
 
