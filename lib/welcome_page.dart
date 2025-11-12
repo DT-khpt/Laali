@@ -3,7 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'services/tts_service.dart';
 import 'services/speech_service.dart';
 import 'services/voice_identity_service.dart';
-import 'services/ai_service.dart';
+///import 'services/ai_service.dart';
 
 class WelcomePage extends StatefulWidget {
   const WelcomePage({super.key});
@@ -39,14 +39,13 @@ class _WelcomePageState extends State<WelcomePage> {
       if (!mounted) return;
 
       if (profile != null) {
-        final name = profile['name'] ?? '';
         if (!mounted) return;
         setState(() {
           _showReturningUserOptions = true;
         });
 
         // Auto greet returning user but don't auto-listen
-        await _speak('ನಮಸ್ಕಾರ $name! ಮತ್ತೆ ಬಂದಿದ್ದಕ್ಕೆ ಸ್ವಾಗತ. ನೀವು ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯಲು ಬಯಸುವಿರಾ ಅಥವಾ ಖಾತೆಯೊಂದಿಗೆ ಮುಂದುವರೆಯಲು ಬಯಸುವಿರಾ?');
+        await _speak('ನಮಸ್ಕಾರ! ಮತ್ತೆ ಬಂದಿದ್ದಕ್ಕೆ ಸ್ವಾಗತ. ನೀವು ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯಲು ಬಯಸುವಿರಾ ಅಥವಾ ಖಾತೆಯೊಂದಿಗೆ ಮುಂದುವರೆಯಲು ಬಯಸುವಿರಾ?');
         return;
       }
     } else {
@@ -140,9 +139,8 @@ class _WelcomePageState extends State<WelcomePage> {
             await _speak('ನಿಮ್ಮ ಅಸ್ತಿತ್ವದಲ್ಲಿರುವ ಖಾತೆಯೊಂದಿಗೆ ಮುಂದುವರೆಯುತ್ತಿದ್ದೇನೆ.');
             _continueAsExistingUser();
           } else {
-            // Route to AI service for general questions
-            final resp = await aiService.getResponse(text, 'general');
-            await _speak(resp);
+            // FIXED: Ask user to repeat choice instead of using AI
+            await _speak('ಕ್ಷಮಿಸಿ, ನಾನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲಿಲ್ಲ. ದಯವಿಟ್ಟು "ಅನಾಮಧೇಯ" ಅಥವಾ "ಖಾತೆ" ಎಂದು ಹೇಳಿ.');
           }
         } else {
           // New user flow responses
@@ -151,9 +149,8 @@ class _WelcomePageState extends State<WelcomePage> {
           } else if (lower.contains('ಖಾತೆ') || lower.contains('account') || lower.contains('create')) {
             await _handleCreateAccount();
           } else {
-            // Route to AI service for general questions
-            final resp = await aiService.getResponse(text, 'general');
-            await _speak(resp);
+            // FIXED: Ask user to repeat choice instead of using AI
+            await _speak('ಕ್ಷಮಿಸಿ, ನಾನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲಿಲ್ಲ. ದಯವಿಟ್ಟು "ಅನಾಮಧೇಯ" ಅಥವಾ "ಖಾತೆ ರಚಿಸಿ" ಎಂದು ಹೇಳಿ.');
           }
         }
       });
@@ -168,10 +165,13 @@ class _WelcomePageState extends State<WelcomePage> {
   }
 
   Future<void> _handleAnonymous() async {
-    await voiceIdentityService.createVoiceIdentity('ಅತಿಥಿ');
-    await _speak('ನೀವು ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯಲು ನಿರ್ಧರಿಸಿದ್ದೀರಿ. ನಿಮ್ಮನ್ನು ಧ್ವನಿ ಇಂಟರ್ಫೇಸ್ಗೆ ಕರೆದೊಯ್ಯುತ್ತಿದ್ದೇನೆ.');
+    // Set anonymous mode without any name
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('userMode', 'anonymous');
+    await prefs.remove('userName'); // Ensure no name is stored
+
+    await _speak('ನೀವು ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯಲು ನಿರ್ಧರಿಸಿದ್ದೀರಿ. ನಿಮ್ಮನ್ನು ಧ್ವನಿ ಇಂಟರ್ಫೇಸ್ಗೆ ಕರೆದೊಯ್ಯುತ್ತಿದ್ದೇನೆ.');
+
     if (mounted) {
       Navigator.pushReplacementNamed(context, '/voice');
     }

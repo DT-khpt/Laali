@@ -24,9 +24,12 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   String? userMode;
 
   // N8N Configuration - UPDATE THIS WITH YOUR N8N WEBHOOK URL
-  static const String n8nWebhookUrl = 'https://squshier-dorie-tensorial.ngrok-free.dev/webhook-test/user-message';
-  static const String n8nApiKey = ''; // Only if your n8n requires authentication
-
+  static const String n8nWebhookUrl =
+      'https://boundless-unprettily-voncile.ngrok-free.dev/webhook-test/user-message';
+  static const String n8nApiKey =
+      ''; // Only if your n8n requires authentication
+  static const Duration n8nResponseTimeout =
+      Duration(seconds: 300); // ⏱️ ADJUST N8N RESPONSE WAITING TIME HERE
 
   @override
   void initState() {
@@ -37,13 +40,16 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
 
     // Auto-greet but don't auto-listen
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _speak('ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಧ್ವನಿ ಸಹಾಯಕ. ನಿಮ್ಮ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಲು ಮೈಕ್ರೊಫೋನ್ ಟ್ಯಾಪ್ ಮಾಡಿ.');
+      await _speak(
+          'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಧ್ವನಿ ಸಹಾಯಕ. ನಿಮ್ಮ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಲು ಮೈಕ್ರೊಫೋನ್ ಟ್ಯಾಪ್ ಮಾಡಿ.');
     });
   }
 
   void _addWelcomeMessage() {
-    const welcomeText = 'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಧ್ವನಿ ಸಹಾಯಕ — ಸಮಸ್ಯೆಗಳನ್ನು ಹೇಳಿ ಅಥವಾ ಪ್ರಶ್ನೆ ಕೇಳಿ.';
-    final msg = Message(role: Role.assistant, content: welcomeText, timestamp: DateTime.now());
+    const welcomeText =
+        'ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಧ್ವನಿ ಸಹಾಯಕ — ಸಮಸ್ಯೆಗಳನ್ನು ಹೇಳಿ ಅಥವಾ ಪ್ರಶ್ನೆ ಕೇಳಿ.';
+    final msg = Message(
+        role: Role.assistant, content: welcomeText, timestamp: DateTime.now());
     if (mounted) {
       setState(() {
         messages = [...messages, msg];
@@ -99,7 +105,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
 
   Future<void> _toggleListening() async {
     if (isSpeaking) {
-      await _speak('ದಯವಿಟ್ಟು ಕೆಲವು ಕ್ಷಣಗಳಲ್ಲಿ ಪ್ರಯತ್ನಿಸಿ. ನಾನು ಇನ್ನೂ ಮಾತನಾಡುತ್ತಿದ್ದೇನೆ.');
+      await _speak(
+          'ದಯವಿಟ್ಟು ಕೆಲವು ಕ್ಷಣಗಳಲ್ಲಿ ಪ್ರಯತ್ನಿಸಿ. ನಾನು ಇನ್ನೂ ಮಾತನಾಡುತ್ತಿದ್ದೇನೆ.');
       return;
     }
 
@@ -119,23 +126,29 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       });
 
       try {
-        await speechService.startListeningWithRetry((text, isFinal) async {
-          debugPrint('Speech result: "$text" final: $isFinal');
-          if (!mounted) return;
-          setState(() => currentTranscript = text);
+        await speechService.startListeningWithRetry(
+            (text, isFinal) async {
+              debugPrint('Speech result: "$text" final: $isFinal');
+              if (!mounted) return;
+              setState(() => currentTranscript = text);
 
-          if (isFinal && text.isNotEmpty) {
-            debugPrint('Final speech result: $text');
-            _onSpeechResult(text);
-          } else if (isFinal) {
-            debugPrint('Empty final result');
-            if (mounted) setState(() => isListening = false);
-          }
-        }, localeId: 'kn-IN', retries: 2, attemptTimeout: const Duration(seconds: 10), onFailure: () async {
-          debugPrint('Speech recognition failed after retries');
-          if (mounted) setState(() => isListening = false);
-          await _speak('ಕ್ಷಮಿಸಿ, ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.');
-        });
+              if (isFinal && text.isNotEmpty) {
+                debugPrint('Final speech result: $text');
+                _onSpeechResult(text);
+              } else if (isFinal) {
+                debugPrint('Empty final result');
+                if (mounted) setState(() => isListening = false);
+              }
+            },
+            localeId: 'kn-IN',
+            retries: 2,
+            attemptTimeout: const Duration(seconds: 10),
+            onFailure: () async {
+              debugPrint('Speech recognition failed after retries');
+              if (mounted) setState(() => isListening = false);
+              await _speak(
+                  'ಕ್ಷಮಿಸಿ, ಧ್ವನಿ ಗುರುತಿಸುವಿಕೆ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.');
+            });
       } catch (e) {
         debugPrint('Speech listening error: $e');
         if (mounted) setState(() => isListening = false);
@@ -149,7 +162,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   }
 
   void _onSpeechResult(String text) async {
-    final userMessage = Message(role: Role.user, content: text, timestamp: DateTime.now());
+    final userMessage =
+        Message(role: Role.user, content: text, timestamp: DateTime.now());
     setState(() {
       messages = [...messages, userMessage];
       currentTranscript = '';
@@ -158,7 +172,10 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     _scrollToBottom();
 
     // Show loading message while n8n processes
-    final loadingMessage = Message(role: Role.assistant, content: 'ಪ್ರಕ್ರಿಯೆಗೊಳಿಸುತ್ತಿದೆ...', timestamp: DateTime.now());
+    final loadingMessage = Message(
+        role: Role.assistant,
+        content: 'ಪ್ರಕ್ರಿಯೆಗೊಳಿಸುತ್ತಿದೆ...',
+        timestamp: DateTime.now());
     setState(() {
       messages = [...messages, loadingMessage];
       isLoadingAI = true;
@@ -172,19 +189,30 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       // Update message with success indication
       setState(() {
         messages = messages.sublist(0, messages.length - 1);
-        messages = [...messages, Message(role: Role.assistant, content: '✅ ಉತ್ತರ ಪಡೆದುಕೊಂಡಿದೆ', timestamp: DateTime.now())];
+        messages = [
+          ...messages,
+          Message(
+              role: Role.assistant,
+              content: '✅ ಉತ್ತರ ಪಡೆದುಕೊಂಡಿದೆ',
+              timestamp: DateTime.now())
+        ];
         isLoadingAI = false;
       });
-
     } catch (e) {
       debugPrint('N8N response error: $e');
       setState(() {
         messages = messages.sublist(0, messages.length - 1);
-        messages = [...messages, Message(role: Role.assistant, content: 'ಕ್ಷಮಿಸಿ, ಪ್ರತಿಕ್ರಿಯೆ ಪಡೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.', timestamp: DateTime.now())];
+        messages = [
+          ...messages,
+          Message(
+              role: Role.assistant,
+              content: 'ಕ್ಷಮಿಸಿ, ಪ್ರತಿಕ್ರಿಯೆ ಪಡೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.',
+              timestamp: DateTime.now())
+        ];
         isLoadingAI = false;
       });
       _scrollToBottom();
-      await _speak('ಕ್ಷಮಿಸಿ, ಪ್ರತಿಕ್ರಿಯೆ ಪಡೆಯಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.');
+      await _speak('ದಯವಿಟ್ಟು ಸ್ವಲ್ಪ ಸಮಯ ಬಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.');
     }
   }
 
@@ -204,11 +232,13 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
         if (n8nApiKey.isNotEmpty) 'Authorization': 'Bearer $n8nApiKey',
       };
 
-      final response = await http.post(
-        Uri.parse(n8nWebhookUrl),
-        headers: headers,
-        body: jsonEncode(requestBody),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            Uri.parse(n8nWebhookUrl),
+            headers: headers,
+            body: jsonEncode(requestBody),
+          )
+          .timeout(n8nResponseTimeout);
 
       // Debug: Print response details
       _debugN8NResponse(response);
@@ -234,7 +264,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       debugPrint('Body length: ${response.bodyBytes.length} bytes');
 
       // **FIX: Check if response is JSON or raw audio first**
-      if (contentType.contains('application/json') || _looksLikeJson(response.bodyBytes)) {
+      if (contentType.contains('application/json') ||
+          _looksLikeJson(response.bodyBytes)) {
         await _handleJsonResponse(response);
       } else if (contentType.contains('audio/')) {
         // Direct audio response
@@ -274,14 +305,15 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
           await _handleBufferObject(jsonResponse);
         }
         // Check for direct audio data in other fields
-        else if (jsonResponse['audio'] != null || jsonResponse['data'] != null) {
+        else if (jsonResponse['audio'] != null ||
+            jsonResponse['data'] != null) {
           await _handleAudioDataInJson(jsonResponse);
         }
         // Check for text response
-        else if (jsonResponse['text'] != null || jsonResponse['output'] != null) {
+        else if (jsonResponse['text'] != null ||
+            jsonResponse['output'] != null) {
           await _handleTextResponse(jsonResponse);
-        }
-        else {
+        } else {
           await _extractAndSpeakText(jsonResponse);
         }
       } else if (jsonResponse is List && jsonResponse.isNotEmpty) {
@@ -323,7 +355,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       }
     } catch (e) {
       debugPrint('Buffer object handling error: $e');
-      await _handleTextFallback(bufferObject, 'ಆಡಿಯೋ ಡೇಟಾ ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.');
+      await _handleTextFallback(
+          bufferObject, 'ಆಡಿಯೋ ಡೇಟಾ ಪ್ರಕ್ರಿಯೆಗೊಳಿಸಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ.');
     }
   }
 
@@ -331,7 +364,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   Future<void> _handleAudioDataInJson(Map jsonResponse) async {
     try {
       // Check various possible audio data locations
-      if (jsonResponse['audio'] is Map && jsonResponse['audio']['data'] is List) {
+      if (jsonResponse['audio'] is Map &&
+          jsonResponse['audio']['data'] is List) {
         await _handleBufferObject(jsonResponse['audio']);
       } else if (jsonResponse['data'] is List) {
         final audioBytes = (jsonResponse['data'] as List).cast<int>().toList();
@@ -383,7 +417,15 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     if (data is String) {
       return data.length < 1000 ? data : '';
     } else if (data is Map) {
-      final commonTextFields = ['text', 'output', 'message', 'response', 'content', 'transcription', 'answer'];
+      final commonTextFields = [
+        'text',
+        'output',
+        'message',
+        'response',
+        'content',
+        'transcription',
+        'answer'
+      ];
 
       for (final field in commonTextFields) {
         if (data[field] is String && data[field].toString().isNotEmpty) {
@@ -406,7 +448,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   }
 
   /// Text fallback handler
-  Future<void> _handleTextFallback(Map jsonResponse, String fallbackMessage) async {
+  Future<void> _handleTextFallback(
+      Map jsonResponse, String fallbackMessage) async {
     debugPrint('Using text fallback: $fallbackMessage');
 
     final textContent = _findTextContent(jsonResponse);
@@ -429,11 +472,13 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   }
 
   /// Save audio bytes to temporary file and play it using AudioService - IMPROVED
-  Future<void> _playAudioFromBytes(List<int> audioBytes, String contentType) async {
+  Future<void> _playAudioFromBytes(
+      List<int> audioBytes, String contentType) async {
     try {
       setState(() => isSpeaking = true);
 
-      debugPrint('🎵 Attempting to play: ${audioBytes.length} bytes, type: $contentType');
+      debugPrint(
+          '🎵 Attempting to play: ${audioBytes.length} bytes, type: $contentType');
 
       // Convert List<int> to Uint8List
       final Uint8List audioData = Uint8List.fromList(audioBytes);
@@ -459,7 +504,6 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
 
       debugPrint('✅ Audio playback completed');
       setState(() => isSpeaking = false);
-
     } catch (e) {
       debugPrint('❌ Audio playback error: $e');
       setState(() => isSpeaking = false);
@@ -492,7 +536,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   }
 
   /// Handle unknown response types
-  Future<void> _handleUnknownResponse(List<int> bodyBytes, String contentType) async {
+  Future<void> _handleUnknownResponse(
+      List<int> bodyBytes, String contentType) async {
     // Try to detect if it's text
     try {
       final text = utf8.decode(bodyBytes);
@@ -562,7 +607,6 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   }
   // In the initState method, replace with this:
 
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -575,17 +619,25 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
               decoration: BoxDecoration(
                 color: theme.cardColor,
                 border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-                boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 4, offset: Offset(0, 1))],
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x11000000),
+                      blurRadius: 4,
+                      offset: Offset(0, 1))
+                ],
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   IconButton(
                     icon: const Icon(Icons.home),
-                    onPressed: () => Navigator.pushReplacementNamed(context, '/welcome'),
+                    onPressed: () =>
+                        Navigator.pushReplacementNamed(context, '/welcome'),
                     tooltip: 'ಮುಖಪುಟ',
                   ),
-                  const Text('ಧ್ವನಿ ಸಹಾಯಕ', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const Text('ಧ್ವನಿ ಸಹಾಯಕ',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                   IconButton(
                     icon: const Icon(Icons.delete_outline),
                     onPressed: _handleClearData,
@@ -597,55 +649,79 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
             // Messages list
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 900),
                   child: messages.isEmpty
                       ? const Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(height: 40),
-                      Text('ಸಂಭಾಷಣೆ ಪ್ರಾರಂಭಿಸಲು ಮೈಕ್ರೊಫೋನ್ ಟ್ಯಾಪ್ ಮಾಡಿ', textAlign: TextAlign.center, style: TextStyle(fontSize: 18)),
-                      SizedBox(height: 8),
-                      Text('ಲಕ್ಷಣಗಳನ್ನು ವರದಿ ಮಾಡಿ, ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಿ, ಅಥವಾ ಆರೋಗ್ಯ ಸಲಹೆ ಪಡೆಯಿರಿ', textAlign: TextAlign.center, style: TextStyle(fontSize: 14, color: Colors.grey)),
-                      SizedBox(height: 20),
-                    ],
-                  )
-                      : ListView.builder(
-                    controller: _scrollController,
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final msg = messages[index];
-                      final isUser = msg.role == Role.user;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Row(
-                          mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Flexible(
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: isUser ? theme.primaryColor : Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(isUser ? 'ನೀವು' : 'ಸಹಾಯಕ', style: TextStyle(fontWeight: FontWeight.w600, color: isUser ? Colors.white : null)),
-                                    const SizedBox(height: 6),
-                                    Text(msg.content, style: TextStyle(color: isUser ? Colors.white : null)),
-                                    const SizedBox(height: 8),
-                                    Text(_formatTime(msg.timestamp), style: const TextStyle(fontSize: 12, color: Colors.black54)),
-                                  ],
-                                ),
-                              ),
-                            ),
+                            SizedBox(height: 40),
+                            Text('ಸಂಭಾಷಣೆ ಪ್ರಾರಂಭಿಸಲು ಮೈಕ್ರೊಫೋನ್ ಟ್ಯಾಪ್ ಮಾಡಿ',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(fontSize: 18)),
+                            SizedBox(height: 8),
+                            Text(
+                                'ಲಕ್ಷಣಗಳನ್ನು ವರದಿ ಮಾಡಿ, ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಿ, ಅಥವಾ ಆರೋಗ್ಯ ಸಲಹೆ ಪಡೆಯಿರಿ',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                    fontSize: 14, color: Colors.grey)),
+                            SizedBox(height: 20),
                           ],
+                        )
+                      : ListView.builder(
+                          controller: _scrollController,
+                          itemCount: messages.length,
+                          itemBuilder: (context, index) {
+                            final msg = messages[index];
+                            final isUser = msg.role == Role.user;
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Row(
+                                mainAxisAlignment: isUser
+                                    ? MainAxisAlignment.end
+                                    : MainAxisAlignment.start,
+                                children: [
+                                  Flexible(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: isUser
+                                            ? theme.primaryColor
+                                            : Colors.grey.shade100,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(isUser ? 'ನೀವು' : 'ಸಹಾಯಕ',
+                                              style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  color: isUser
+                                                      ? Colors.white
+                                                      : null)),
+                                          const SizedBox(height: 6),
+                                          Text(msg.content,
+                                              style: TextStyle(
+                                                  color: isUser
+                                                      ? Colors.white
+                                                      : null)),
+                                          const SizedBox(height: 8),
+                                          Text(_formatTime(msg.timestamp),
+                                              style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.black54)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
                 ),
               ),
             ),
@@ -654,7 +730,12 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
               decoration: BoxDecoration(
                 color: theme.cardColor,
                 border: Border(top: BorderSide(color: Colors.grey.shade200)),
-                boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 4, offset: Offset(0, -1))],
+                boxShadow: const [
+                  BoxShadow(
+                      color: Color(0x11000000),
+                      blurRadius: 4,
+                      offset: Offset(0, -1))
+                ],
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: ConstrainedBox(
@@ -666,8 +747,13 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(color: theme.primaryColor.withAlpha(20), borderRadius: BorderRadius.circular(8)),
-                        child: Text('"$currentTranscript"', textAlign: TextAlign.center, style: const TextStyle(fontStyle: FontStyle.italic)),
+                        decoration: BoxDecoration(
+                            color: theme.primaryColor.withAlpha(20),
+                            borderRadius: BorderRadius.circular(8)),
+                        child: Text('"$currentTranscript"',
+                            textAlign: TextAlign.center,
+                            style:
+                                const TextStyle(fontStyle: FontStyle.italic)),
                       ),
                     const SizedBox(height: 6),
                     Text(
@@ -684,7 +770,9 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                             height: 80,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: isListening ? const Color(0xFFD32F2F) : const Color(0xFF1976D2),
+                              color: isListening
+                                  ? const Color(0xFFD32F2F)
+                                  : const Color(0xFF1976D2),
                               boxShadow: [
                                 BoxShadow(
                                   color: const Color(0x33000000),
@@ -702,7 +790,11 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          isListening ? 'ಕೇಳುತ್ತಿದೆ...' : (isSpeaking ? 'ಆಡಿಯೋ ಪ್ಲೇ ಆಗುತ್ತಿದೆ...' : 'ಮಾತನಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ'),
+                          isListening
+                              ? 'ಕೇಳುತ್ತಿದೆ...'
+                              : (isSpeaking
+                                  ? 'ಆಡಿಯೋ ಪ್ಲೇ ಆಗುತ್ತಿದೆ...'
+                                  : 'ಮಾತನಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ'),
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
                       ],
@@ -712,7 +804,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
-                          onPressed: () => Navigator.pushNamed(context, '/dashboard'),
+                          onPressed: () =>
+                              Navigator.pushNamed(context, '/dashboard'),
                           child: const Text('ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ ನೋಡಿ'),
                         ),
                       ),
