@@ -6,7 +6,7 @@ import 'package:mcp/services/audio_player_service.dart' show audioService;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'services/tts_service.dart';
 import 'services/speech_service.dart';
-import 'services/supabase_service.dart';
+import 'services/firebase_service.dart'; // REPLACED Supabase with Firebase
 import 'welcome_page.dart';
 import 'dashboard.dart';
 
@@ -26,7 +26,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   bool isLoadingAI = false;
   String? userMode;
 
-  final SupabaseService _supa = SupabaseService();
+  // REPLACED: Firebase service instance
+  final FirebaseService _firebaseService = FirebaseService();
 
   static const String n8nWebhookUrl = 'https://boundless-unprettily-voncile.ngrok-free.dev/webhook-test/user-message';
   static const String n8nApiKey = '';
@@ -70,13 +71,15 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     });
   }
 
-  Future<void> _saveUserMessageToSupabase(String text) async {
+
+  // UPDATED: Save user message to Firebase (consistent with new structure)
+  Future<void> _saveUserMessageToFirebase(String text) async {
     if (userMode == 'account') {
       try {
-        await _supa.saveVisitNote(text);
-        debugPrint('✅ User message saved to Supabase');
+        await _firebaseService.saveVisitNote(text);
+        debugPrint('✅ User message saved to Firebase');
       } catch (e) {
-        debugPrint('❌ Error saving to Supabase: $e');
+        debugPrint('❌ Error saving to Firebase: $e');
       }
     }
   }
@@ -195,7 +198,8 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     });
     _scrollToBottom();
 
-    _saveUserMessageToSupabase(text);
+    // UPDATED: Save to Firebase instead of Supabase
+    _saveUserMessageToFirebase(text);
 
     final loadingMessage = Message(role: Role.assistant, content: 'ಪ್ರಕ್ರಿಯೆಗೊಳಿಸುತ್ತಿದೆ...', timestamp: DateTime.now());
     setState(() {

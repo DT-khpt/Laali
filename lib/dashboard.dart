@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'services/tts_service.dart';
-import 'services/supabase_service.dart';
+import 'services/firebase_service.dart';
 import 'welcome_page.dart';
 import 'voice_interface_page.dart';
 
@@ -20,7 +20,7 @@ class _DashboardPageState extends State<DashboardPage> {
   bool loading = true;
   bool isSpeaking = false;
 
-  final SupabaseService _supa = SupabaseService();
+  final FirebaseService _firebaseService = FirebaseService();
 
   String riskLevel = 'Low';
   List<RecentSymptom> recentSymptoms = [];
@@ -96,69 +96,65 @@ class _DashboardPageState extends State<DashboardPage> {
       });
     }
 
-    await _loadSupabaseData();
+    await _loadFirebaseData();
 
     if (mounted) {
       setState(() => loading = false);
     }
   }
 
-  Future<void> _loadSupabaseData() async {
+  // UPDATED: Use simplified Firebase methods
+  Future<void> _loadFirebaseData() async {
     try {
-      // Load profile for username
-      final profile = await _supa.getProfile();
-      if (profile != null && profile['username'] != null) {
+      // SIMPLIFIED: Get everything from user profile
+      final profile = await _firebaseService.getUserProfile();
+      if (profile != null) {
+        // Get username
         final dbUsername = profile['username'];
-        if (dbUsername.isNotEmpty && mounted) {
+        if (dbUsername != null && dbUsername.isNotEmpty && mounted) {
           setState(() => username = dbUsername);
+        }
+
+        // Get LMP date from user profile (not separate pregnancy collection)
+        final lmpTimestamp = profile['lmp_date'] as Timestamp?;
+        if (lmpTimestamp != null && mounted) {
+          setState(() {
+            lmpDate = lmpTimestamp.toDate();
+            ga = calculateGestationalAge(lmpDate);
+          });
         }
       }
 
       // Load recent symptoms from visit_notes
-      final currentUserId = _supa.currentUser?.id;
-      if (currentUserId != null) {
-        final notesData = await Supabase.instance.client
-            .from('visit_notes')
-            .select('transcript, created_at')
-            .eq('user_id', currentUserId)
-            .order('created_at', ascending: false)
-            .limit(5);
+      final notesData = await _firebaseService.getRecentVisitNotes(limit: 5);
+      final List<RecentSymptom> loadedSymptoms = [];
 
-        final List<RecentSymptom> loadedSymptoms = [];
-        for (final note in notesData) {
-          final transcript = (note['transcript'] ?? '').toString().trim();
-          if (transcript.isNotEmpty) {
-            final snippet = transcript.length > 60
-                ? '${transcript.substring(0, 60)}...'
-                : transcript;
-            loadedSymptoms.add(RecentSymptom(
-                symptom: snippet,
-                date: _formatRelativeTime(note['created_at']),
-                severity: 'Normal'
-            ));
-          }
-        }
+      for (final note in notesData) {
+        final transcript = (note['transcript'] ?? '').toString().trim();
+        if (transcript.isNotEmpty) {
+          final snippet = transcript.length > 60
+              ? '${transcript.substring(0, 60)}...'
+              : transcript;
 
-        // Load risk score
-        final riskData = await Supabase.instance.client
-            .from('risk_scores')
-            .select('risk_level')
-            .eq('user_id', currentUserId)
-            .order('computed_at', ascending: false)
-            .limit(1)
-            .maybeSingle();
-
-        if (mounted) {
-          setState(() {
-            recentSymptoms = loadedSymptoms;
-            if (riskData != null && riskData['risk_level'] != null) {
-              riskLevel = riskData['risk_level'];
-            }
-          });
+          final timestamp = note['created_at'] as Timestamp;
+          loadedSymptoms.add(RecentSymptom(
+              symptom: snippet,
+              date: _formatRelativeTime(timestamp.toDate()),
+              severity: 'Normal'
+          ));
         }
       }
+
+      // SIMPLIFIED: Risk level based on recent activity
+      if (mounted) {
+        setState(() {
+          recentSymptoms = loadedSymptoms;
+          riskLevel = loadedSymptoms.isEmpty ? 'Low' : 'Medium';
+        });
+      }
     } catch (e) {
-      debugPrint('Supabase data loading error: $e');
+      debugPrint('Firebase data loading error: $e');
+      // Fallback to mock data
       if (mounted) {
         setState(() {
           recentSymptoms = [
@@ -170,21 +166,16 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  String _formatRelativeTime(String? dateString) {
-    if (dateString == null) return 'ಇತ್ತೀಚೆಗೆ';
-    try {
-      final date = DateTime.parse(dateString);
-      final now = DateTime.now();
-      final difference = now.difference(date);
+  // UPDATED: Handle Firebase Timestamp
+  String _formatRelativeTime(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
 
-      if (difference.inDays == 0) return 'ಇಂದು';
-      if (difference.inDays == 1) return 'ನಿನ್ನೆ';
-      if (difference.inDays < 7) return '${difference.inDays} ದಿನಗಳ ಹಿಂದೆ';
-      if (difference.inDays < 30) return '${difference.inDays ~/ 7} ವಾರಗಳ ಹಿಂದೆ';
-      return '${difference.inDays ~/ 30} ತಿಂಗಳ ಹಿಂದೆ';
-    } catch (_) {
-      return 'ಇತ್ತೀಚೆಗೆ';
-    }
+    if (difference.inDays == 0) return 'ಇಂದು';
+    if (difference.inDays == 1) return 'ನಿನ್ನೆ';
+    if (difference.inDays < 7) return '${difference.inDays} ದಿನಗಳ ಹಿಂದೆ';
+    if (difference.inDays < 30) return '${difference.inDays ~/ 7} ವಾರಗಳ ಹಿಂದೆ';
+    return '${difference.inDays ~/ 30} ತಿಂಗಳ ಹಿಂದೆ';
   }
 
   Future<void> _speakSummary() async {

@@ -5,7 +5,7 @@ import 'services/speech_service.dart';
 import 'services/name_extractor.dart';
 import 'services/voice_identity_service.dart';
 import 'services/ai_service.dart';
-import 'services/supabase_service.dart';
+import 'services/firebase_service.dart';
 import 'dashboard.dart';
 import 'welcome_page.dart';
 
@@ -28,7 +28,8 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
   bool isSpeaking = false;
   bool _hasGreeted = false;
   bool _loading = false;
-  final SupabaseService _supa = SupabaseService();
+
+  final FirebaseService _firebaseService = FirebaseService();
 
   // SAFE NAVIGATION METHODS
   void _navigateToDashboard() {
@@ -61,19 +62,6 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
   void initState() {
     super.initState();
     _initTts();
-  }
-
-  Future<bool> _createTempAuthUserIfNeeded() async {
-    try {
-      if (_supa.currentUser == null) {
-        final res = await _supa.signUpTempUser();
-        return res.user != null;
-      }
-      return true;
-    } catch (e) {
-      debugPrint('Temp auth error: $e');
-      return false;
-    }
   }
 
   Future<void> _initTts() async {
@@ -131,9 +119,9 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
 
     if (mounted) {
       setState(() {
-      isListening = true;
-      transcript = '';
-    });
+        isListening = true;
+        transcript = '';
+      });
     }
 
     try {
@@ -212,6 +200,7 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
     await _speak(fallbackResp);
   }
 
+  // UPDATED: Simplified Firebase account creation
   Future<void> _handleConfirm() async {
     if (step == SignupStep.confirm && username.isNotEmpty && lmpDate == null) {
       if (mounted) {
@@ -225,21 +214,22 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
     } else if (step == SignupStep.confirm && lmpDate != null) {
       setState(() => _loading = true);
       try {
-        final ok = await _createTempAuthUserIfNeeded();
-        if (!ok) throw Exception('Auth not available. Check Supabase settings.');
+        // SIMPLIFIED: Create user and profile in one step
+        final user = await _firebaseService.signInAnonymously();
+        if (user == null) throw Exception('Failed to create user');
 
-        final existing = await _supa.getProfile();
-        if (existing == null) {
-          await _supa.createProfile(username: username, isAnonymous: false);
-        }
+        // SIMPLIFIED: Create profile with username AND LMP in one call
+        await _firebaseService.createUserProfile(
+            username: username,
+            lmpDate: lmpDate!,
+            isAnonymous: false
+        );
 
-        if (lmpDate != null) {
-          await _supa.createPregnancy(lmpDate: lmpDate!);
-        }
-
+        // Create voice identity
         await voiceIdentityService.createVoiceIdentity(username);
         await _speak('ಖಾತೆಯನ್ನು ಯಶಸ್ವಿಯಾಗಿ ರಚಿಸಲಾಗಿದೆ! ನಿಮ್ಮನ್ನು ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಕರೆದೊಯ್ಯುತ್ತಿದ್ದೇನೆ.');
 
+        // Save to shared preferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userMode', 'account');
         await prefs.setString('username', username);

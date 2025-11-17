@@ -1,14 +1,22 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("com.google.gms.google-services")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
     namespace = "com.khpt.mcp"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 36  // ✅ Recommended stable version
+
+    defaultConfig {
+        applicationId = "com.khpt.mcp"
+        minSdk = flutter.minSdkVersion       // ✅ Required for Firebase + STT
+        targetSdk = 34    // ✅ Must match compileSdk = 34
+        versionCode = flutter.versionCode?.toInt() ?: 1
+        versionName = flutter.versionName
+        multiDexEnabled = true
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -16,27 +24,38 @@ android {
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11.toString()
-    }
-
-    defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.khpt.mcp"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        jvmTarget = "11"
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
+
+    packaging {
+        resources {
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
+            excludes += "META-INF/DEPENDENCIES"
+        }
+    }
+}
+
+dependencies {
+    // Latest Firebase compatible with FlutterFire
+    implementation(platform("com.google.firebase:firebase-bom:33.4.0"))
+    implementation("com.google.firebase:firebase-analytics")
+
+    // Required for large apps
+    implementation("androidx.multidex:multidex:2.0.1")
+
+    // (Optional) Avoid STT crash on Android 14
+    implementation("androidx.core:core-ktx:1.13.1")
 }
 
 flutter {

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_core/firebase_core.dart'; // REPLACED Supabase
 import 'package:shared_preferences/shared_preferences.dart';
 import 'welcome_page.dart';
 import 'voice_signup_page.dart';
@@ -9,21 +9,12 @@ import 'dashboard.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  const String supabaseUrl = 'https://nwmvedqoahulgexbbcrt.supabase.co';
-  const String supabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im53bXZlZHFvYWh1bGdleGJiY3J0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI3NTcxODcsImV4cCI6MjA3ODMzMzE4N30.zaK4rAfeMFlhy4OkjnVR_0oOuEBS7sEYwLOYZZWOBOs';
-
-  // Initialize Supabase
-  if (supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty) {
-    try {
-      await Supabase.initialize(
-        url: supabaseUrl,
-        anonKey: supabaseAnonKey,
-      );
-      debugPrint('✅ Supabase initialized');
-    } catch (e) {
-      debugPrint('⚠️ Supabase.initialize() failed: $e');
-    }
+  // REPLACED Supabase with Firebase initialization
+  try {
+    await Firebase.initializeApp();
+    debugPrint('✅ Firebase initialized');
+  } catch (e) {
+    debugPrint('⚠️ Firebase.initialize() failed: $e');
   }
 
   runApp(const MyApp());
@@ -50,22 +41,14 @@ class _MyAppState extends State<MyApp> {
       // Wait a bit to ensure everything is initialized
       await Future.delayed(const Duration(milliseconds: 100));
 
-      final client = Supabase.instance.client;
-      final user = client.auth.currentUser;
+      final prefs = await SharedPreferences.getInstance();
+      final userMode = prefs.getString('userMode');
 
-      if (user != null) {
-        final prefs = await SharedPreferences.getInstance();
-        final isAnonymous = prefs.getBool('isAnonymous') ?? false;
-
-        if (isAnonymous) {
-          setState(() {
-            _isLoading = false;
-          });
-        } else {
-          setState(() {
-            _isLoading = false;
-          });
-        }
+      // SIMPLIFIED: Just check if user has a mode set
+      if (userMode != null && (userMode == 'anonymous' || userMode == 'account')) {
+        setState(() {
+          _isLoading = false;
+        });
       } else {
         setState(() {
           _isLoading = false;

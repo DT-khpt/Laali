@@ -4,6 +4,7 @@ import 'dart:math';
 import 'services/tts_service.dart';
 import 'services/speech_service.dart';
 import 'services/voice_identity_service.dart';
+import 'services/firebase_service.dart';
 import 'voice_interface_page.dart';
 import 'voice_signup_page.dart';
 import 'dashboard.dart';
@@ -23,6 +24,8 @@ class _WelcomePageState extends State<WelcomePage> {
   bool _speechReady = false;
   String transcript = '';
   bool _loading = false;
+
+  final FirebaseService _firebaseService = FirebaseService();
 
   @override
   void initState() {
@@ -72,15 +75,33 @@ class _WelcomePageState extends State<WelcomePage> {
     }
   }
 
+  // UPDATED: Simplified anonymous login with Firebase
   Future<void> _handleAnonymous() async {
     setState(() => _loading = true);
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('userMode', 'anonymous');
-      await prefs.setBool('isAnonymous', true);
-      await prefs.remove('userName');
-      await _speak('ನೀವು ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯಲು ನಿರ್ಧರಿಸಿದ್ದೀರಿ. ನಿಮ್ಮನ್ನು ಧ್ವನಿ ಇಂಟರ್ಫೇಸ್ಗೆ ಕರೆದೊಯ್ಯುತ್ತಿದ್ದೇನೆ.');
-      if (mounted) _navigateToVoice();
+      // SIMPLIFIED: Firebase anonymous authentication
+      final user = await _firebaseService.signInAnonymously();
+      if (user != null) {
+        // SIMPLIFIED: Create profile with guest username and default LMP
+        await _firebaseService.createUserProfile(
+            username: 'ಅತಿಥಿ',
+            lmpDate: DateTime.now(), // Default LMP for anonymous users
+            isAnonymous: true
+        );
+
+        // Create voice identity for guest user
+        await voiceIdentityService.createVoiceIdentity('ಅತಿಥಿ');
+
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('userMode', 'anonymous');
+        await prefs.setBool('isAnonymous', true);
+        await prefs.remove('userName');
+
+        await _speak('ನೀವು ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯಲು ನಿರ್ಧರಿಸಿದ್ದೀರಿ. ನಿಮ್ಮನ್ನು ಧ್ವನಿ ಇಂಟರ್ಫೇಸ್ಗೆ ಕರೆದೊಯ್ಯುತ್ತಿದ್ದೇನೆ.');
+        if (mounted) _navigateToVoice();
+      } else {
+        throw Exception('Failed to create anonymous user');
+      }
     } catch (e) {
       debugPrint('Anonymous sign-in error: $e');
       await _speak('ಕ್ಷಮಿಸಿ, ಅನಾಮಧೇಯ ಪ್ರವೇಶದಲ್ಲಿ ಸಮಸ್ಯೆ ಉಂಟಾಗಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.');
@@ -89,17 +110,18 @@ class _WelcomePageState extends State<WelcomePage> {
     }
   }
 
+  // UPDATED: Check for existing user with Firebase
   Future<void> _checkAndRecognizeUser() async {
-    final hasUser = await voiceIdentityService.hasExistingUser();
+    final prefs = await SharedPreferences.getInstance();
+    final userMode = prefs.getString('userMode');
+
     if (!mounted) return;
-    if (hasUser) {
-      final profile = await voiceIdentityService.getUserProfile();
-      if (!mounted) return;
-      if (profile != null) {
-        setState(() => _showReturningUserOptions = true);
-        await _speak('ನಮಸ್ಕಾರ! ಮತ್ತೆ ಬಂದಿದ್ದಕ್ಕೆ ಸ್ವಾಗತ. ನೀವು ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯಲು ಬಯಸುವಿರಾ ಅಥವಾ ಖಾತೆಯೊಂದಿಗೆ ಮುಂದುವರೆಯಲು ಬಯಸುವಿರಾ?');
-        return;
-      }
+
+    // Check if user has existing mode (anonymous or account)
+    if (userMode != null && (userMode == 'anonymous' || userMode == 'account')) {
+      setState(() => _showReturningUserOptions = true);
+      await _speak('ನಮಸ್ಕಾರ! ಮತ್ತೆ ಬಂದಿದ್ದಕ್ಕೆ ಸ್ವಾಗತ. ನೀವು ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯಲು ಬಯಸುವಿರಾ ಅಥವಾ ಖಾತೆಯೊಂದಿಗೆ ಮುಂದುವರೆಯಲು ಬಯಸುವಿರಾ?');
+      return;
     } else {
       await _speak('ಮಾತೃತ್ವ ಆರೋಗ್ಯ ಸಹಾಯಕಕ್ಕೆ ಸ್ವಾಗತ. ನೀವು ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯಲು ಬಯಸುವಿರಾ ಅಥವಾ ಖಾತೆಯನ್ನು ರಚಿಸಲು ಬಯಸುವಿರಾ?');
     }
@@ -187,14 +209,26 @@ class _WelcomePageState extends State<WelcomePage> {
     if (mounted) _navigateToSignup();
   }
 
+  // UPDATED: Continue as existing user with Firebase
   void _continueAsExistingUser() async {
-    final profile = await voiceIdentityService.getUserProfile();
+    final prefs = await SharedPreferences.getInstance();
+    final userMode = prefs.getString('userMode');
+
     if (!mounted) return;
-    if (profile != null) {
-      if (profile['mode'] == 'anonymous') {
-        _navigateToVoice();
-      } else {
-        _navigateToDashboard();
+
+    if (userMode == 'anonymous') {
+      _navigateToVoice();
+    } else if (userMode == 'account') {
+      _navigateToDashboard();
+    } else {
+      // Fallback: check Firebase for user data
+      final profile = await _firebaseService.getUserProfile();
+      if (profile != null && mounted) {
+        if (profile['is_anonymous'] == true) {
+          _navigateToVoice();
+        } else {
+          _navigateToDashboard();
+        }
       }
     }
   }

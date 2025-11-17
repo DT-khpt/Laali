@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "907507751620",
+    "project_id": "mcp-project-34c3f",
+    "storage_bucket": "mcp-project-34c3f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:907507751620:android:b3b51a7e851f3a9c11c791",
+        "android_client_info": {
+          "package_name": "com.khpt.mcp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA94eEHCUOKNeN990u8IKsu_-jGRiD15Tc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
