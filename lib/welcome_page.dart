@@ -19,10 +19,10 @@ class WelcomePage extends StatefulWidget {
 class _WelcomePageState extends State<WelcomePage> {
   bool isListening = false;
   bool isSpeaking = false;
-  bool _speechReady = false;
   String transcript = '';
-  bool _loading = false;
   String? returningUsername;
+  DateTime? returningUserLMP;
+  String _currentFlow = 'initial'; // 'initial', 'confirm_identity', 'verify_lmp'
 
   final FirebaseService _firebaseService = FirebaseService();
 
@@ -78,9 +78,20 @@ class _WelcomePageState extends State<WelcomePage> {
     final prefs = await SharedPreferences.getInstance();
     final userMode = prefs.getString('userMode');
     final username = prefs.getString('username');
+    final lmpStr = prefs.getString('lmpDate');
 
     if (userMode == 'account' && username != null) {
-      setState(() => returningUsername = username);
+      setState(() {
+        returningUsername = username;
+        if (lmpStr != null) {
+          try {
+            returningUserLMP = DateTime.parse(lmpStr);
+          } catch (e) {
+            debugPrint('Error parsing LMP date: $e');
+          }
+        }
+      });
+
       await Future.delayed(const Duration(seconds: 1));
       await _speak('ನಮಸ್ಕಾರ! ನೀವು $username ಖಾತೆಯೊಂದಿಗೆ ಮುಂದುವರೆಯಲು ಬಯಸುವಿರಾ? ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ.');
     } else {
@@ -126,21 +137,31 @@ class _WelcomePageState extends State<WelcomePage> {
   void _handleUserResponse(String text) async {
     final lower = text.toLowerCase();
 
+    if (_currentFlow == 'initial') {
+      await _handleInitialResponse(lower);
+    } else if (_currentFlow == 'confirm_identity') {
+      await _handleIdentityConfirmation(lower);
+    } else if (_currentFlow == 'verify_lmp') {
+      await _handleLMPVerification(lower);
+    }
+  }
+
+  Future<void> _handleInitialResponse(String response) async {
     if (returningUsername != null) {
       // Returning user flow
-      if (lower.contains('ಹೌದು') || lower.contains('yes')) {
+      if (response.contains('ಹೌದು') || response.contains('yes')) {
         await _continueWithAccount();
-      } else if (lower.contains('ಇಲ್ಲ') || lower.contains('no')) {
-        await _startAsAnonymous();
+      } else if (response.contains('ಇಲ್ಲ') || response.contains('no')) {
+        await _handleDifferentUser();
       } else {
         await _speak('ಕ್ಷಮಿಸಿ, ನಾನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ.');
         await _startListeningForResponse();
       }
     } else {
       // New user flow
-      if (lower.contains('ಹೌದು') || lower.contains('yes')) {
+      if (response.contains('ಹೌದು') || response.contains('yes')) {
         await _handleStoreInformation();
-      } else if (lower.contains('ಇಲ್ಲ') || lower.contains('no')) {
+      } else if (response.contains('ಇಲ್ಲ') || response.contains('no')) {
         await _handleAnonymous();
       } else {
         await _speak('ಕ್ಷಮಿಸಿ, ನಾನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ.');
@@ -149,14 +170,115 @@ class _WelcomePageState extends State<WelcomePage> {
     }
   }
 
+  Future<void> _handleDifferentUser() async {
+    setState(() {
+      _currentFlow = 'confirm_identity';
+    });
+
+    await _speak('ನೀವು $returningUsername ಹೆಸರಿನ ಬೇರೆ ವ್ಯಕ್ತಿಯೇ? ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ.');
+    await _startListeningForResponse();
+  }
+
+  Future<void> _handleIdentityConfirmation(String response) async {
+    if (response.contains('ಹೌದು') || response.contains('yes')) {
+      // Same name, different person - verify LMP
+      setState(() {
+        _currentFlow = 'verify_lmp';
+      });
+
+      if (returningUserLMP != null) {
+        final formattedDate = _formatDateForSpeech(returningUserLMP!);
+        await _speak('ನಿಮ್ಮ ಕೊನೆಯ ಋತುಚಕ್ರದ ಪ್ರಥಮ ದಿನಾಂಕ ಏನು? ನಿಮ್ಮ ದಿನಾಂಕ $formattedDate ಆಗಿದೆಯೇ? ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ.');
+      } else {
+        await _speak('ನಿಮ್ಮ ಕೊನೆಯ ಋತುಚಕ್ರದ ಪ್ರಥಮ ದಿನಾಂಕ ಏನು? ದಯವಿಟ್ಟು ದಿನಾಂಕ ಹೇಳಿ.');
+      }
+      await _startListeningForResponse();
+    } else if (response.contains('ಇಲ್ಲ') || response.contains('no')) {
+      // Different person with same name - create new account
+      await _speak('ಹೊಸ ಖಾತೆ ರಚಿಸಲು ಮುಂದುವರೆಯುತ್ತಿದ್ದೇನೆ.');
+      _navigateToSignup();
+    } else {
+      await _speak('ಕ್ಷಮಿಸಿ, ನಾನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ.');
+      await _startListeningForResponse();
+    }
+  }
+
+  Future<void> _handleLMPVerification(String response) async {
+    if (response.contains('ಹೌದು') || response.contains('yes')) {
+      // LMP matches - continue to existing account
+      await _speak('ನಿಮ್ಮ ಗುರುತನ್ನು ಧೃಡಪಡಿಸಲಾಗಿದೆ. ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಮುಂದುವರೆಯುತ್ತಿದ್ದೇನೆ.');
+      _navigateToDashboard();
+    } else if (response.contains('ಇಲ್ಲ') || response.contains('no')) {
+      // LMP doesn't match - create new account
+      await _speak('ನಿಮಗಾಗಿ ಹೊಸ ಖಾತೆ ರಚಿಸಲು ಮುಂದುವರೆಯುತ್ತಿದ್ದೇನೆ.');
+      _navigateToSignup();
+    } else {
+      // Try to extract date from response
+      final extractedDate = _extractDateFromText(response);
+      if (extractedDate != null) {
+        await _verifyExtractedDate(extractedDate);
+      } else {
+        await _speak('ಕ್ಷಮಿಸಿ, ನಾನು ದಿನಾಂಕ ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಹೌದು ಅಥವಾ ಇಲ್ಲ ಎಂದು ಹೇಳಿ.');
+        await _startListeningForResponse();
+      }
+    }
+  }
+
+  DateTime? _extractDateFromText(String text) {
+    // Simple date extraction logic - you might want to enhance this
+    try {
+      // Look for common date patterns
+      final now = DateTime.now();
+
+      // If user says "today" or equivalent
+      if (text.contains('ಇಂದು') || text.contains('today')) {
+        return now;
+      }
+
+      // If user says "yesterday" or equivalent
+      if (text.contains('ನಿನ್ನೆ') || text.contains('yesterday')) {
+        return now.subtract(const Duration(days: 1));
+      }
+
+      // Add more date parsing logic as needed
+      // This is a simplified version - you might want to use a proper date parsing library
+
+      return null;
+    } catch (e) {
+      debugPrint('Date extraction error: $e');
+      return null;
+    }
+  }
+
+  Future<void> _verifyExtractedDate(DateTime extractedDate) async {
+    if (returningUserLMP != null) {
+      // Check if dates are close enough (within 2 days)
+      final difference = extractedDate.difference(returningUserLMP!).inDays.abs();
+      if (difference <= 2) {
+        await _speak('ದಿನಾಂಕ ಹೊಂದಿಕೆಯಾಗಿದೆ. ಡ್ಯಾಶ್‌ಬೋರ್ಡ್‌ಗೆ ಮುಂದುವರೆಯುತ್ತಿದ್ದೇನೆ.');
+        _navigateToDashboard();
+      } else {
+        await _speak('ದಿನಾಂಕ ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ. ಹೊಸ ಖಾತೆ ರಚಿಸಲು ಮುಂದುವರೆಯುತ್ತಿದ್ದೇನೆ.');
+        _navigateToSignup();
+      }
+    } else {
+      // No existing LMP to compare with
+      await _speak('ಹೊಸ ಖಾತೆ ರಚಿಸಲು ಮುಂದುವರೆಯುತ್ತಿದ್ದೇನೆ.');
+      _navigateToSignup();
+    }
+  }
+
+  String _formatDateForSpeech(DateTime date) {
+    final months = [
+      'ಜನವರಿ', 'ಫೆಬ್ರವರಿ', 'ಮಾರ್ಚ್', 'ಎಪ್ರಿಲ್', 'ಮೇ', 'ಜೂನ್',
+      'ಜುಲೈ', 'ಆಗಸ್ಟ್', 'ಸೆಪ್ಟೆಂಬರ್', 'ಅಕ್ಟೋಬರ್', 'ನವೆಂಬರ್', 'ಡಿಸೆಂಬರ್'
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year}';
+  }
+
   Future<void> _continueWithAccount() async {
     await _speak('ನಿಮ್ಮ ಖಾತೆಯೊಂದಿಗೆ ಮುಂದುವರೆಯುತ್ತಿದ್ದೇನೆ.');
     _navigateToDashboard();
-  }
-
-  Future<void> _startAsAnonymous() async {
-    await _speak('ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರೆಯುತ್ತಿದ್ದೇನೆ.');
-    await _handleAnonymous();
   }
 
   Future<void> _handleStoreInformation() async {
@@ -165,7 +287,6 @@ class _WelcomePageState extends State<WelcomePage> {
   }
 
   Future<void> _handleAnonymous() async {
-    setState(() => _loading = true);
     try {
       final user = await _firebaseService.signInAnonymously();
       if (user != null) {
@@ -190,16 +311,15 @@ class _WelcomePageState extends State<WelcomePage> {
       debugPrint('Anonymous error: $e');
       await _speak('ಕ್ಷಮಿಸಿ, ಪ್ರವೇಶದಲ್ಲಿ ಸಮಸ್ಯೆ ಉಂಟಾಗಿದೆ.');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {}
     }
   }
 
   Future<void> _prepareServices() async {
     await ttsService.setSpeechRate(0.4);
     await ttsService.setPitch(1.0);
-    final ok = await speechService.initialize();
+    await speechService.initialize();
     if (!mounted) return;
-    setState(() => _speechReady = ok);
   }
 
   Future<void> _speak(String text) async {
@@ -221,6 +341,25 @@ class _WelcomePageState extends State<WelcomePage> {
     } else {
       await speechService.stop();
       setState(() => isListening = false);
+    }
+  }
+
+  String _getQuestionText() {
+    if (_currentFlow == 'confirm_identity') {
+      return 'ನೀವು $returningUsername ಹೆಸರಿನ ಬೇರೆ ವ್ಯಕ್ತಿಯೇ?';
+    } else if (_currentFlow == 'verify_lmp') {
+      if (returningUserLMP != null) {
+        final formattedDate = _formatDateForSpeech(returningUserLMP!);
+        return 'ನಿಮ್ಮ ಕೊನೆಯ ಋತುಚಕ್ರದ ಪ್ರಥಮ ದಿನಾಂಕ $formattedDate ಆಗಿದೆಯೇ?';
+      } else {
+        return 'ನಿಮ್ಮ ಕೊನೆಯ ಋತುಚಕ್ರದ ಪ್ರಥಮ ದಿನಾಂಕ ಏನು?';
+      }
+    } else {
+      if (returningUsername != null) {
+        return 'ನಮಸ್ಕಾರ $returningUsername! ನಿಮ್ಮ ಖಾತೆಯೊಂದಿಗೆ ಮುಂದುವರೆಯಲು ಬಯಸುವಿರಾ?';
+      } else {
+        return 'ನಿಮ್ಮ ಮಾಹಿತಿಯನ್ನು ಶೇಖರಿಸಲು ನೀವು ಬಯಸುವಿರಾ?';
+      }
     }
   }
 
@@ -277,18 +416,11 @@ class _WelcomePageState extends State<WelcomePage> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (returningUsername != null)
-                            Text(
-                              'ನಮಸ್ಕಾರ $returningUsername!',
-                              style: theme.textTheme.titleLarge,
-                              textAlign: TextAlign.center,
-                            )
-                          else
-                            Text(
-                              'ನಿಮ್ಮ ಮಾಹಿತಿಯನ್ನು ಶೇಖರಿಸಲು ನೀವು ಬಯಸುವಿರಾ?',
-                              style: theme.textTheme.titleLarge,
-                              textAlign: TextAlign.center,
-                            ),
+                          Text(
+                            _getQuestionText(),
+                            style: theme.textTheme.titleLarge,
+                            textAlign: TextAlign.center,
+                          ),
 
                           const SizedBox(height: 16),
 
@@ -322,7 +454,7 @@ class _WelcomePageState extends State<WelcomePage> {
                                 color: isListening ? const Color(0xFFD32F2F) : const Color(0xFF1976D2),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: const Color(0x33000000),
+                                    color: Color.fromRGBO(0, 0, 0, 0.2),
                                     blurRadius: 16,
                                     offset: const Offset(0, 6),
                                   ),

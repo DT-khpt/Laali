@@ -103,19 +103,15 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // UPDATED: Use simplified Firebase methods
   Future<void> _loadFirebaseData() async {
     try {
-      // SIMPLIFIED: Get everything from user profile
       final profile = await _firebaseService.getUserProfile();
       if (profile != null) {
-        // Get username
         final dbUsername = profile['username'];
         if (dbUsername != null && dbUsername.isNotEmpty && mounted) {
           setState(() => username = dbUsername);
         }
 
-        // Get LMP date from user profile (not separate pregnancy collection)
         final lmpTimestamp = profile['lmp_date'] as Timestamp?;
         if (lmpTimestamp != null && mounted) {
           setState(() {
@@ -125,7 +121,6 @@ class _DashboardPageState extends State<DashboardPage> {
         }
       }
 
-      // Load recent symptoms from visit_notes
       final notesData = await _firebaseService.getRecentVisitNotes(limit: 5);
       final List<RecentSymptom> loadedSymptoms = [];
 
@@ -145,7 +140,6 @@ class _DashboardPageState extends State<DashboardPage> {
         }
       }
 
-      // SIMPLIFIED: Risk level based on recent activity
       if (mounted) {
         setState(() {
           recentSymptoms = loadedSymptoms;
@@ -154,7 +148,6 @@ class _DashboardPageState extends State<DashboardPage> {
       }
     } catch (e) {
       debugPrint('Firebase data loading error: $e');
-      // Fallback to mock data
       if (mounted) {
         setState(() {
           recentSymptoms = [
@@ -166,7 +159,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  // UPDATED: Handle Firebase Timestamp
   String _formatRelativeTime(DateTime date) {
     final now = DateTime.now();
     final difference = now.difference(date);
@@ -194,14 +186,6 @@ class _DashboardPageState extends State<DashboardPage> {
     await ttsService.speak(summary);
   }
 
-  Color _riskColor(String level) {
-    switch (level) {
-      case 'Low': return Colors.green;
-      case 'Medium': return Colors.orange;
-      case 'High': return Colors.red;
-      default: return Colors.grey;
-    }
-  }
 
   String _translateSeverity(String s) {
     if (s == 'Low') return 'ಕಡಿಮೆ';
@@ -233,8 +217,6 @@ class _DashboardPageState extends State<DashboardPage> {
       );
     }
 
-    final riskColor = _riskColor(riskLevel);
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -246,13 +228,6 @@ class _DashboardPageState extends State<DashboardPage> {
         title: Text('ಡ್ಯಾಶ್‌ಬೋರ್ಡ್', style: Theme.of(context).textTheme.titleLarge),
         backgroundColor: Colors.white,
         elevation: 1,
-        actions: [
-          IconButton(
-            icon: Icon(isSpeaking ? Icons.volume_up : Icons.mic, color: const Color(0xFF00796B)),
-            onPressed: isSpeaking ? null : _speakSummary,
-            tooltip: 'ಸಾರಾಂಶ ಓದಿ',
-          ),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -271,6 +246,50 @@ class _DashboardPageState extends State<DashboardPage> {
                   ],
                 ),
                 const SizedBox(height: 32),
+
+                // CENTERED MIC BUTTON FOR DASHBOARD SUMMARY
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 20),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _speakSummary,
+                        child: Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00796B),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Color.fromRGBO(0, 121, 107, 0.3),
+                                blurRadius: 15,
+                                offset: const Offset(0, 6),
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            isSpeaking ? Icons.volume_up : Icons.mic,
+                            color: Colors.white,
+                            size: 50,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'ಡ್ಯಾಶ್ಬೋರ್ಡ್ ಸಾರಾಂಶವನ್ನು ಕೇಳಲು ಟ್ಯಾಪ್ ಮಾಡಿ',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
 
                 // Gestational Age Card
                 Card(
@@ -299,55 +318,7 @@ class _DashboardPageState extends State<DashboardPage> {
                         const SizedBox(height: 8),
                         Text('ತ್ರೈಮಾಸಿಕ ${ga!.trimester}', style: Theme.of(context).textTheme.bodyMedium),
                         const SizedBox(height: 20),
-                        const SizedBox(height: 12),
                         Text('ನಿರೀಕ್ಷಿತ ಹೆರಿಗೆ ದಿನಾಂಕ: ${formatDueDate(ga!.dueDate)}', style: Theme.of(context).textTheme.bodyMedium),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Risk Assessment Card
-                Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Icon(Icons.warning_amber_rounded, size: 20, color: Theme.of(context).primaryColor),
-                            const SizedBox(width: 8),
-                            Text('ಅಪಾಯ ಮೌಲ್ಯಮಾಪನ', style: Theme.of(context).textTheme.titleLarge),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: riskColor.withAlpha(30),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(width: 10, height: 10, decoration: BoxDecoration(color: riskColor, shape: BoxShape.circle)),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    '${riskLevel == 'Low' ? 'ಕಡಿಮೆ' : riskLevel == 'Medium' ? 'ಮಧ್ಯಮ' : 'ಹೆಚ್ಚು'} ಅಪಾಯ',
-                                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: riskColor),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text('ವರದಿ ಮಾಡಿದ ಲಕ್ಷಣಗಳು ಮತ್ತು ಆರೋಗ್ಯ ಡೇಟಾದ ಆಧಾರದ ಮೇಲೆ', style: Theme.of(context).textTheme.bodyMedium),
-                          ],
-                        ),
                       ],
                     ),
                   ),
@@ -431,7 +402,11 @@ class _DashboardPageState extends State<DashboardPage> {
                           child: Text('ಲಕ್ಷಣವನ್ನು ವರದಿ ಮಾಡಿ', style: TextStyle(fontSize: 16)),
                         ),
                         onPressed: _navigateToVoice,
-                        style: ElevatedButton.styleFrom(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00796B),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))
+                        ),
                       ),
                     ),
                   ],
@@ -460,7 +435,10 @@ class _DashboardPageState extends State<DashboardPage> {
                           icon: const Icon(Icons.mic),
                           label: const Text('ಪ್ರಶ್ನೆ ಕೇಳಿ'),
                           onPressed: _navigateToVoice,
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1976D2), foregroundColor: Colors.white),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF1976D2),
+                              foregroundColor: Colors.white
+                          ),
                         ),
                       ],
                     ),
