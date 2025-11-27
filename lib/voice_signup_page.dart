@@ -34,12 +34,10 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
     super.initState();
     _initTts();
 
-
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future.delayed(const Duration(seconds: 1));
-      await _speak('ನಿಮ್ಮ ಮಾಹಿತಿಯನ್ನು ಸಂಗ್ರಹಿಸಿ ನಿಮಗೆ ಸಂಬಂಧಿತ ಉತ್ತರಗಳನ್ನು ನೀಡಲಾಗುವುದು. ನಾನು ನಿಮಗೆ ಖಾತೆಯನ್ನು ರಚಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹೆಸರನ್ನು ಹೇಳಿ.');
+      await _speak('ನಿಮ್ಮ ಮಾಹಿತಿಯನ್ನು ಸಂಗ್ರಹಿಸಿ ನಿಮಗೆ ಸಂಬಂಧಿತ ಉತ್ತರಗಳನ್ನು ನೀಡಲಾಗುವುದು. ನಾನು ನಿಮಗೆ ಖಾತೆಯನ್ನು ರಚಿಸಲು ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹೆಸರನ್ನು ಹೇಳಿ.ಮೈಕ್ ಟ್ಯಾಪ್ ಮಾಡಿ ಉತ್ತರಿಸಿ');
     });
-
   }
 
   // AUTOMATIC GREETING
@@ -155,7 +153,7 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
             step = SignupStep.lmp;
           });
         }
-        await _speak('ನಿಮ್ಮ ಹೆಸರು $extractedName. ಈಗ ನಿಮ್ಮ ಕೊನೆಯ ಮುಟ್ಟಿನ ದಿನಾಂಕ ಹೇಳಿ.ಉದಾಹರಣೆಗೆ ಜೂನ್ ಇಪ್ಪತ್ತೈದು');
+        await _speak('ನಿಮ್ಮ ಹೆಸರು $extractedName. ಈಗ ನಿಮ್ಮ ಕೊನೆಯ ಮುಟ್ಟಿನ ದಿನಾಂಕ ಹೇಳಿ.ಉದಾಹರಣೆಗೆ ಜೂನ್ ಇಪ್ಪತ್ತೈದು.ಮೈಕ್ ಟ್ಯಾಪ್ ಮಾಡಿ ಉತ್ತರಿಸಿ');
       } else {
         await _speak('ದಯವಿಟ್ಟು ನಿಮ್ಮ ಹೆಸರನ್ನು ಸ್ಪಷ್ಟವಾಗಿ ಹೇಳಿ.');
       }
@@ -174,7 +172,7 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
         final display = _formatDateKn(parsed);
         await _speak('ನಿಮ್ಮ ಕೊನೆಯ ಮುಟ್ಟಿನ ದಿನಾಂಕ $display. ಖಾತೆ ರಚಿಸಲು ಸರಿ ಎಂದು ಹೇಳಿ.');
       } else {
-        await _speak('ದಿನಾಂಕವನ್ನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ.');
+        await _speak('ದಿನಾಂಕವನ್ನು ಅರ್ಥಮಾಡಿಕೊಳ್ಳಲಾಗಲಿಲ್ಲ. ದಯವಿಟ್ಟು ಮತ್ತೊಮ್ಮೆ ಪ್ರಯತ್ನಿಸಿ.ಮೈಕ್ ಟ್ಯಾಪ್ ಮಾಡಿ ಉತ್ತರಿಸಿ');
       }
       return;
     }
@@ -231,7 +229,7 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
 
   Future<void> _handleReject() async {
     if (username.isNotEmpty && lmpDate == null) {
-      await _speak('ಸರಿ, ನಿಮ್ಮ ಹೆಸರನ್ನು ಮತ್ತೊಮ್ಮೆ ಹೇಳಿ.');
+      await _speak('ಸರಿ,ಮೈಕ್ ಟ್ಯಾಪ್ ಮಾಡಿ ನಿಮ್ಮ ಹೆಸರನ್ನು ಮತ್ತೊಮ್ಮೆ ಹೇಳಿ.');
       if (mounted) {
         setState(() {
           username = '';
@@ -424,39 +422,64 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
 
                             const SizedBox(height: 16),
 
-                            // MICROPHONE BUTTON
-                            GestureDetector(
-                              onTap: _toggleListening,
-                              child: Container(
-                                width: 80,
-                                height: 80,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isListening ? const Color(0xFFD32F2F) : const Color(0xFF1976D2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                        color: const Color(0x26000000),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 4)
-                                    ),
-                                  ],
+                            // BIG MICROPHONE BUTTON WITH BOX
+                            Container(
+                              padding: const EdgeInsets.all(30),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[50],
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: Colors.grey[300]!,
+                                  width: 2,
                                 ),
-                                child: Icon(
-                                    isListening ? Icons.mic : Icons.mic_none,
-                                    color: Colors.white,
-                                    size: 32
-                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.1),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
                               ),
-                            ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  GestureDetector(
+                                    onTap: _toggleListening,
+                                    child: Container(
+                                      width: 120, // Bigger mic
+                                      height: 120, // Bigger mic
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: isListening ? const Color(0xFFD32F2F) : const Color(0xFF00796B),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: (isListening ? const Color(0xFFD32F2F) : const Color(0xFF00796B)).withOpacity(0.3),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 8),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        isListening ? Icons.mic : Icons.mic_none,
+                                        color: Colors.white,
+                                        size: 50, // Bigger icon
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
 
-                            const SizedBox(height: 12),
-
-                            // STATUS TEXT
-                            Text(
-                              isListening ? 'ಕೇಳುತ್ತಿದೆ...' :
-                              (isSpeaking ? 'ಮಾತನಾಡುತ್ತಿದೆ...' : 'ಮಾತನಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ'),
-                              style: theme.textTheme.bodyLarge,
-                              textAlign: TextAlign.center,
+                                  // STATUS TEXT
+                                  Text(
+                                    isListening ? 'ಕೇಳುತ್ತಿದೆ... ಮಾತನಾಡಿ' :
+                                    (isSpeaking ? 'ಮಾತನಾಡುತ್ತಿದೆ...' : 'ಮಾತನಾಡಲು ಟ್ಯಾಪ್ ಮಾಡಿ'),
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: Colors.grey[700],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
                             ),
 
                             const SizedBox(height: 24),

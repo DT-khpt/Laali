@@ -7,7 +7,8 @@ plugins {
 
 android {
     namespace = "com.khpt.mcp"
-    compileSdk = 36  // ✅ Recommended stable version
+    compileSdk = 36 // ✅ Recommended stable version
+    ndkVersion = "28.2.13676358"
 
     defaultConfig {
         applicationId = "com.khpt.mcp"

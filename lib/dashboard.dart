@@ -145,16 +145,6 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  String _formatRelativeTime(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) return 'ಇಂದು';
-    if (difference.inDays == 1) return 'ನಿನ್ನೆ';
-    if (difference.inDays < 7) return '${difference.inDays} ದಿನಗಳ ಹಿಂದೆ';
-    if (difference.inDays < 30) return '${difference.inDays ~/ 7} ವಾರಗಳ ಹಿಂದೆ';
-    return '${difference.inDays ~/ 30} ತಿಂಗಳ ಹಿಂದೆ';
-  }
 
   Future<void> _speakSummary() async {
     if (ga == null || isSpeaking) return;
@@ -172,11 +162,6 @@ class _DashboardPageState extends State<DashboardPage> {
     await ttsService.speak(summary);
   }
 
-  String _translateSeverity(String s) {
-    if (s == 'Low') return 'ಕಡಿಮೆ';
-    if (s == 'Normal') return 'ಸಾಮಾನ್ಯ';
-    return s;
-  }
 
   @override
   void dispose() {

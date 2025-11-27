@@ -34,17 +34,29 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   String? username;
   String? _currentlyPlayingMessageId;
 
+  // NEW: Audio playback state
+  bool _isAudioPaused = false;
+  Duration? _audioPosition;
+  Duration? _audioDuration;
+  // NEW: Store current playing audio data for resume functionality
+  Uint8List? _currentAudioData;
+  String? _currentAudioContentType;
+
   // Recording state
   Duration _recordingDuration = Duration.zero;
   late Timer _recordingTimer;
   String? _currentTranscript;
+  String? _finalTranscript;
 
   final AudioStorageService _audioStorage = AudioStorageService();
   final ChatHistoryService _chatHistoryService = ChatHistoryService();
 
-  static const String n8nWebhookUrl = 'https://squshier-dorie-tensorial.ngrok-free.dev/webhook-test/user-message';
-  //static const String n8nWebhookUrl = 'https://boundless-unprettily-voncile.ngrok-free.dev/webhook-test/user-message';
+  static const String n8nWebhookUrl = 'https://boundless-unprettily-voncile.ngrok-free.dev/webhook-test/user-message';
   static const Duration n8nResponseTimeout = Duration(seconds: 300);
+
+  // NEW: Colors
+  static const Color greenColor = Color(0xFF037E57);
+  static const Color blueColor = Color(0xFF043249);
 
   @override
   void initState() {
@@ -52,11 +64,6 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     _initTts();
     _loadUserData();
     _addWelcomeMessage();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _speak(
-          'ನಮಸ್ಕಾರ! ಮೈಕ್ರೊಫೋನ್ ಟ್ಯಾಪ್ ಮಾಡಿ ಮತ್ತು ನಿಮ್ಮ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಿ.');
-    });
   }
 
   // SAFE NAVIGATION METHODS
@@ -188,6 +195,43 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     await _chatHistoryService.saveChatHistory(messages);
   }
 
+  // NEW: Delete chat history
+  Future<void> _deleteChatHistory() async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('ಚಾಟ್ ಇತಿಹಾಸ ಅಳಿಸಿ'),
+        content: const Text('ನೀವು ಖಚಿತವಾಗಿ ಎಲ್ಲಾ ಚಾಟ್ ಇತಿಹಾಸವನ್ನು ಅಳಿಸಲು ಬಯಸುವಿರಾ? ಈ ಕ್ರಿಯೆಯನ್ನು ರದ್ದುಗೊಳಿಸಲಾಗುವುದಿಲ್ಲ.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('ರದ್ದು'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _chatHistoryService.clearChatHistory();
+              await _audioStorage.clearAllAudioFiles();
+              setState(() {
+                messages.clear();
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('ಚಾಟ್ ಇತಿಹಾಸ ಅಳಿಸಲಾಗಿದೆ'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+            ),
+            child: const Text('ಅಳಿಸಿ'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _addWelcomeMessage() {
     if (messages.isEmpty) {
       final welcomeMsg = ChatMessage(
@@ -202,6 +246,11 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       );
       setState(() => messages.add(welcomeMsg));
       _saveChatHistory();
+
+      // FIXED: Speak welcome message only once
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _speak('ನಮಸ್ಕಾರ! ಮೈಕ್ರೊಫೋನ್ ಟ್ಯಾಪ್ ಮಾಡಿ ಮತ್ತು ನಿಮ್ಮ ಪ್ರಶ್ನೆಗಳನ್ನು ಕೇಳಿ.');
+      });
     }
   }
 
@@ -235,6 +284,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       isRecording = true;
       _recordingDuration = Duration.zero;
       _currentTranscript = null;
+      _finalTranscript = null;
     });
 
     _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -250,37 +300,49 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
         if (text.isNotEmpty) {
           setState(() {
             _currentTranscript = text;
+            if (isFinal) {
+              _finalTranscript = text;
+            }
           });
-        }
-        if (isFinal && text.isNotEmpty) {
-          _stopRecording(text);
         }
       },
           localeId: 'kn-IN',
           retries: 1,
           attemptTimeout: const Duration(seconds: 30));
     } catch (e) {
-      _stopRecording('');
+      _stopRecording();
     }
   }
 
-  void _stopRecording(String transcript) {
+  void _stopRecording() {
     _recordingTimer.cancel();
+    speechService.stop();
     if (mounted) {
       setState(() {
         isRecording = false;
       });
-    }
-    if (transcript.isNotEmpty) {
-      _sendMessage(transcript);
     }
   }
 
   void _deleteRecording() {
     setState(() {
       _currentTranscript = null;
+      _finalTranscript = null;
     });
+    _stopRecording();
     _speak('ರೆಕಾರ್ಡಿಂಗ್ ಅಳಿಸಲಾಗಿದೆ. ಮರು-ರೆಕಾರ್ಡ್ ಮಾಡಿ.');
+  }
+
+  void _sendRecording() {
+    if (_finalTranscript != null && _finalTranscript!.isNotEmpty) {
+      _sendMessage(_finalTranscript!);
+      _stopRecording();
+    } else if (_currentTranscript != null && _currentTranscript!.isNotEmpty) {
+      _sendMessage(_currentTranscript!);
+      _stopRecording();
+    } else {
+      _speak('ದಯವಿಟ್ಟು ಮೊದಲು ರೆಕಾರ್ಡ್ ಮಾಡಿ.');
+    }
   }
 
   void _sendMessage(String transcript) async {
@@ -347,15 +409,11 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       )
           .timeout(n8nResponseTimeout);
 
-      // UPDATED: Handle both 200 and 500 status codes if they contain valid data
       if (response.statusCode == 200) {
         await _handleN8NResponse(response, userMessage);
       } else if (response.statusCode == 500) {
-        // Check if the 500 response actually contains valid data
         debugPrint('⚠️ Server returned 500, but checking for valid response data...');
         debugPrint('Response body preview: ${response.body.length > 100 ? '${response.body.substring(0, 100)}...' : response.body}');
-
-        // Try to process the response even with 500 status
         await _handleN8NResponse(response, userMessage);
       } else {
         throw Exception('ಸರ್ವರ್ ತಪ್ಪು: ${response.statusCode}');
@@ -375,7 +433,6 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       final contentType = response.headers['content-type']?.toLowerCase() ?? '';
       final bodyBytes = response.bodyBytes;
 
-      // Debug log to see what we're receiving
       debugPrint('📥 Response status: ${response.statusCode}');
       debugPrint('📥 Content-Type: $contentType');
       debugPrint('📥 Body length: ${bodyBytes.length} bytes');
@@ -395,7 +452,6 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     } catch (e) {
       debugPrint('❌ N8N response handling error: $e');
 
-      // Try fallback: maybe it's JSON despite the content type
       try {
         debugPrint('🔄 Trying JSON fallback...');
         final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
@@ -421,13 +477,11 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     }
   }
 
-  // UPDATED: Handle new N8N format with audioContent + video
   Future<void> _handleJsonResponse(
       http.Response response, String userMessage) async {
     try {
       final jsonResponse = jsonDecode(utf8.decode(response.bodyBytes));
 
-      // NEW: Handle array format (your example shows array with one object)
       if (jsonResponse is List && jsonResponse.isNotEmpty) {
         final firstItem = jsonResponse.first;
         if (firstItem is Map) {
@@ -439,11 +493,9 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       }
 
       if (jsonResponse is Map) {
-        // NEW: Handle the array format with video and audioContent
         if (jsonResponse.containsKey('video') && jsonResponse.containsKey('audioContent')) {
           await _handleVideoAudioResponse(jsonResponse, userMessage);
         }
-        // Existing handlers...
         else if (jsonResponse['type'] == 'Buffer' && jsonResponse['data'] is List) {
           await _handleBufferObject(jsonResponse, userMessage);
         } else if (jsonResponse['audio'] != null || jsonResponse['data'] != null) {
@@ -460,17 +512,13 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     }
   }
 
-  // NEW: Handle the video + audioContent format
   Future<void> _handleVideoAudioResponse(Map jsonResponse, String userMessage) async {
     try {
-      // Extract audio content
       final audioContent = jsonResponse['audioContent']?.toString();
       if (audioContent != null && audioContent.isNotEmpty) {
-        // Decode base64 audio
         final audioBytes = base64.decode(audioContent);
         await _playAudioFromBytes(audioBytes, 'audio/mpeg', userMessage);
 
-        // Extract and add video suggestion
         if (jsonResponse['video'] != null) {
           await _addVideoSuggestionFromN8N(jsonResponse['video']);
         }
@@ -479,7 +527,6 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       }
     } catch (e) {
       debugPrint('Video+Audio response handling error: $e');
-      // Fallback to text if available
       final textContent = _findTextContent(jsonResponse);
       if (textContent.isNotEmpty) {
         await _speak(textContent);
@@ -506,23 +553,17 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     }
   }
 
-  // UPDATED: Handle all N8N audio formats including new audioContent
   Future<void> _handleAudioDataInJson(Map jsonResponse, String userMessage) async {
     try {
-      // Handle multiple audio formats
-
-      // Format 1: New format with audioContent
       if (jsonResponse['audioContent'] != null && jsonResponse['audioContent'] is String) {
         final audioContent = jsonResponse['audioContent'] as String;
         final audioBytes = base64.decode(audioContent);
         await _playAudioFromBytes(audioBytes, 'audio/mpeg', userMessage);
 
-        // Extract video if available
         if (jsonResponse['video'] != null) {
           await _addVideoSuggestionFromN8N(jsonResponse['video']);
         }
       }
-      // Format 2: Old format with audio.data
       else if (jsonResponse['audio'] != null && jsonResponse['audio']['data'] != null) {
         final audioData = jsonResponse['audio']['data'];
         if (audioData is String) {
@@ -534,11 +575,9 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
           }
         }
       }
-      // Format 3: Buffer format
       else if (jsonResponse['audio'] is Map && jsonResponse['audio']['data'] is List) {
         await _handleBufferObject(jsonResponse['audio'], userMessage);
       }
-      // Format 4: Direct data array
       else if (jsonResponse['data'] is List) {
         final audioBytes = (jsonResponse['data'] as List).cast<int>().toList();
         await _playAudioFromBytes(audioBytes, 'audio/mpeg', userMessage);
@@ -552,18 +591,15 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     }
   }
 
-  // UPDATED: Handle both video formats
   Future<void> _addVideoSuggestionFromN8N(dynamic videoData) async {
     try {
       String? videoUrl;
       String? videoTitle;
 
       if (videoData is Map) {
-        // Format 1: {url: "...", title: "..."}
         videoUrl = videoData['url']?.toString();
         videoTitle = videoData['title']?.toString();
 
-        // Format 2: {url: "...", title: "...", hasVideo: true}
         videoUrl ??= videoData['videoUrl']?.toString();
         videoTitle ??= videoData['videoTitle']?.toString();
       }
@@ -708,18 +744,23 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   Future<void> _playAudioFromBytes(
       List<int> audioBytes, String contentType, String userMessage) async {
     try {
-      setState(() => isPlaying = true);
+      setState(() {
+        isPlaying = true;
+        _isAudioPaused = false;
+        _audioPosition = Duration.zero;
+        _audioDuration = const Duration(seconds: 19);
+        // Store current audio data for pause/resume functionality
+        _currentAudioData = Uint8List.fromList(audioBytes);
+        _currentAudioContentType = contentType;
+      });
 
       final Uint8List audioData = Uint8List.fromList(audioBytes);
 
-      // Save audio locally
       final messageId = 'audio_${DateTime.now().millisecondsSinceEpoch}';
       final localPath = await _audioStorage.saveAudioLocally(audioData, messageId);
 
-      // Play audio immediately
       await audioService.playAudioBytes(audioData, contentType);
 
-      // Add AI response as audio message with local storage
       final aiMessage = ChatMessage(
         id: messageId,
         content: 'ಆಡಿಯೋ ಪ್ರತಿಕ್ರಿಯೆ',
@@ -733,6 +774,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       setState(() {
         messages.add(aiMessage);
         isPlaying = false;
+        _isAudioPaused = false;
         _currentlyPlayingMessageId = null;
       });
 
@@ -742,6 +784,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       debugPrint('❌ Audio playback error: $e');
       setState(() {
         isPlaying = false;
+        _isAudioPaused = false;
         _currentlyPlayingMessageId = null;
       });
       await _speak('ಆಡಿಯೋ ಸಮಸ್ಯೆ, ಪಠ್ಯ ಪ್ರತಿಕ್ರಿಯೆ ನೀಡುತ್ತಿದೆ.');
@@ -762,13 +805,20 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     try {
       setState(() {
         isPlaying = true;
+        _isAudioPaused = false;
         _currentlyPlayingMessageId = msg.id;
+        _audioPosition = Duration.zero;
+        _audioDuration = const Duration(seconds: 19);
+        // Store current audio data for pause/resume functionality
+        _currentAudioData = msg.audioBytes;
+        _currentAudioContentType = 'audio/mpeg';
       });
 
       await audioService.playAudioBytes(msg.audioBytes!, 'audio/mpeg');
 
       setState(() {
         isPlaying = false;
+        _isAudioPaused = false;
         _currentlyPlayingMessageId = null;
       });
     } catch (e) {
@@ -781,7 +831,10 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     try {
       setState(() {
         isPlaying = true;
+        _isAudioPaused = false;
         _currentlyPlayingMessageId = msg.id;
+        _audioPosition = Duration.zero;
+        _audioDuration = const Duration(seconds: 19);
       });
 
       final audioBytes =
@@ -795,6 +848,10 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
           });
         }
 
+        // Store current audio data for pause/resume functionality
+        _currentAudioData = audioBytes;
+        _currentAudioContentType = 'audio/mpeg';
+
         await audioService.playAudioBytes(audioBytes, 'audio/mpeg');
       } else {
         throw Exception('Audio file not found');
@@ -802,15 +859,48 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
 
       setState(() {
         isPlaying = false;
+        _isAudioPaused = false;
         _currentlyPlayingMessageId = null;
       });
     } catch (e) {
       debugPrint('❌ Local audio file playback error: $e');
       setState(() {
         isPlaying = false;
+        _isAudioPaused = false;
         _currentlyPlayingMessageId = null;
       });
       await _speak(msg.content);
+    }
+  }
+
+  // UPDATED: Pause/Resume audio functionality using stop and replay
+  Future<void> _pauseResumeAudio(ChatMessage msg) async {
+    if (_currentlyPlayingMessageId == msg.id) {
+      if (isPlaying && !_isAudioPaused) {
+        // "Pause" by stopping the audio
+        await audioService.stop();
+        setState(() {
+          _isAudioPaused = true;
+        });
+      } else if (_isAudioPaused) {
+        // "Resume" by playing the audio from beginning
+        if (_currentAudioData != null && _currentAudioContentType != null) {
+          setState(() {
+            isPlaying = true;
+            _isAudioPaused = false;
+          });
+          await audioService.playAudioBytes(_currentAudioData!, _currentAudioContentType!);
+          setState(() {
+            isPlaying = false;
+          });
+        }
+      }
+    } else {
+      // Play different audio
+      if (isPlaying) {
+        await audioService.stop();
+      }
+      await _playLocalAudio(msg);
     }
   }
 
@@ -847,12 +937,27 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     });
   }
 
+  // Simple video icon that shows URL dialog
   void _openVideo(String videoUrl, String title) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(title),
-        content: Text('ವೀಡಿಯೊ ತೆರೆಯಲು: $videoUrl'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('ವೀಡಿಯೊ ಲಿಂಕ್:'),
+            const SizedBox(height: 8),
+            SelectableText(
+              videoUrl,
+              style: const TextStyle(
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -861,20 +966,71 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
           ElevatedButton(
             onPressed: () {
               Navigator.pop(context);
-              _speak('ವೀಡಿಯೊ ಪ್ರಾರಂಭಿಸಲಾಗುತ್ತಿದೆ');
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('ಲಿಂಕ್ ಕಾಪಿ ಆಗಿದೆ'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
             },
-            child: const Text('ವೀಡಿಯೊ ತೆರೆಯಿರಿ'),
+            child: const Text('ಲಿಂಕ್ ಕಾಪಿ ಮಾಡಿ'),
           ),
         ],
       ),
     );
   }
 
-  // NEW: Audio Message Bubble Design
+  // Helper method to replace withOpacity
+  Color _getColorWithOpacity(Color color, double opacity) {
+    return Color.fromARGB(
+      (opacity * 255.0).round() & 0xff,
+      (color.r * 255.0).round() & 0xff,
+      (color.g * 255.0).round() & 0xff,
+      (color.b * 255.0).round() & 0xff,
+    );
+  }
+
+  // User Avatar
+  Widget _buildUserAvatar() {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: greenColor, // UPDATED: Changed to new green color
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: const Icon(
+        Icons.person,
+        color: Colors.white,
+        size: 18,
+      ),
+    );
+  }
+
+  // Assistant Avatar
+  Widget _buildAssistantAvatar() {
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: blueColor, // UPDATED: Changed to new blue color
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: 2),
+      ),
+      child: const Icon(
+        Icons.smart_toy,
+        color: Colors.white,
+        size: 18,
+      ),
+    );
+  }
+
+  // Audio Message Bubble with Pause/Play functionality
   Widget _buildAudioMessageBubble(ChatMessage msg) {
     final isUser = msg.isUser;
-    final isCurrentlyPlaying =
-        _currentlyPlayingMessageId == msg.id && isPlaying;
+    final isCurrentlyPlaying = _currentlyPlayingMessageId == msg.id && isPlaying;
+    final isPaused = _currentlyPlayingMessageId == msg.id && _isAudioPaused;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
@@ -893,14 +1049,14 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color:
-                isUser ? const Color(0xFF00796B) : const Color(0xFF2C3E50),
+                isUser ? greenColor : blueColor, // UPDATED: New colors
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Row(
                 children: [
                   // Play/Pause Button
                   GestureDetector(
-                    onTap: () => _playMessageAudio(msg),
+                    onTap: () => _pauseResumeAudio(msg),
                     child: Container(
                       width: 44,
                       height: 44,
@@ -909,11 +1065,12 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
+                        isPaused ? Icons.play_arrow :
                         isCurrentlyPlaying ? Icons.pause : Icons.play_arrow,
                         size: 24,
                         color: isUser
-                            ? const Color(0xFF00796B)
-                            : const Color(0xFF2C3E50),
+                            ? greenColor // UPDATED: New green color
+                            : blueColor, // UPDATED: New blue color
                       ),
                     ),
                   ),
@@ -930,7 +1087,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              '0:00',
+                              _formatDuration(_audioPosition ?? Duration.zero),
                               style: TextStyle(
                                 color: _getColorWithOpacity(Colors.white, 0.7),
                                 fontSize: 12,
@@ -938,7 +1095,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                               ),
                             ),
                             Text(
-                              '0:01 / 0:19',
+                              '${_formatDuration(_audioPosition ?? Duration.zero)} / ${_formatDuration(_audioDuration ?? const Duration(seconds: 19))}',
                               style: TextStyle(
                                 color: _getColorWithOpacity(Colors.white, 0.7),
                                 fontSize: 12,
@@ -961,7 +1118,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                             children: [
                               // Progress
                               Container(
-                                width: isCurrentlyPlaying
+                                width: isCurrentlyPlaying || isPaused
                                     ? MediaQuery.of(context).size.width * 0.3
                                     : 0,
                                 decoration: BoxDecoration(
@@ -971,7 +1128,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                               ),
 
                               // Waveform dots (simplified)
-                              if (!isCurrentlyPlaying)
+                              if (!isCurrentlyPlaying && !isPaused)
                                 Row(
                                   mainAxisAlignment:
                                   MainAxisAlignment.spaceEvenly,
@@ -1017,53 +1174,15 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     );
   }
 
-  // Helper method to replace withOpacity
-  Color _getColorWithOpacity(Color color, double opacity) {
-    return Color.fromARGB(
-      (opacity * 255.0).round() & 0xff,
-      (color.r * 255.0).round() & 0xff,
-      (color.g * 255.0).round() & 0xff,
-      (color.b * 255.0).round() & 0xff,
-    );
+  // Helper method to format duration
+  String _formatDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$twoDigitMinutes:$twoDigitSeconds";
   }
 
-  // User Avatar
-  Widget _buildUserAvatar() {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: const Color(0xFF00796B),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-      ),
-      child: const Icon(
-        Icons.person,
-        color: Colors.white,
-        size: 18,
-      ),
-    );
-  }
-
-  // Assistant Avatar
-  Widget _buildAssistantAvatar() {
-    return Container(
-      width: 36,
-      height: 36,
-      decoration: BoxDecoration(
-        color: const Color(0xFF2C3E50),
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-      ),
-      child: const Icon(
-        Icons.smart_toy,
-        color: Colors.white,
-        size: 18,
-      ),
-    );
-  }
-
-  // Text Message Bubble (for non-audio messages)
+  // Text Message Bubble with simplified video icon
   Widget _buildTextMessageBubble(ChatMessage msg) {
     final isUser = msg.isUser;
     final hasVideo = msg.videoUrl != null;
@@ -1085,7 +1204,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color:
-                isUser ? const Color(0xFF00796B) : const Color(0xFF2C3E50),
+                isUser ? greenColor : blueColor, // UPDATED: New colors
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Column(
@@ -1100,48 +1219,32 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                   ),
                   if (hasVideo) ...[
                     const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: _getColorWithOpacity(Colors.white, 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                            color: _getColorWithOpacity(Colors.white, 0.3)),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Icon(Icons.video_library,
-                                  color: Colors.white, size: 20),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  msg.videoTitle ?? 'ವೀಡಿಯೊ',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                  softWrap: true,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              icon: const Icon(Icons.play_arrow, size: 20),
-                              label: const Text('ವೀಡಿಯೊ ನೋಡಿ'),
-                              onPressed: () =>
-                                  _openVideo(msg.videoUrl!, msg.videoTitle!),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.white,
-                                foregroundColor: const Color(0xFF00796B),
+                    // Simple video icon only
+                    GestureDetector(
+                      onTap: () => _openVideo(msg.videoUrl!, msg.videoTitle!),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _getColorWithOpacity(Colors.white, 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: _getColorWithOpacity(Colors.white, 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.video_library,
+                                color: Colors.white, size: 24),
+                            const SizedBox(width: 8),
+                            Text(
+                              'ವೀಡಿಯೊ',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -1168,26 +1271,14 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     }
   }
 
-  Future<void> _playMessageAudio(ChatMessage msg) async {
-    if (_currentlyPlayingMessageId == msg.id && isPlaying) {
-      setState(() {
-        isPlaying = false;
-        _currentlyPlayingMessageId = null;
-      });
-      await audioService.stop();
-    } else {
-      if (isPlaying) {
-        await audioService.stop();
-      }
-      await _playLocalAudio(msg);
-    }
-  }
+  // Play message audio with pause/resume support
 
   @override
   void dispose() {
     _recordingTimer.cancel();
     ttsService.stop();
     speechService.stop();
+    audioService.stop();
     _scrollController.dispose();
     super.dispose();
   }
@@ -1198,11 +1289,11 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header - UPDATED WITH PROPER ICONS
+            // Header - UPDATED: Added delete button
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF2C3E50),
+                color: blueColor, // UPDATED: New blue color
                 border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
               ),
               child: Row(
@@ -1223,14 +1314,19 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                   ),
                   Row(
                     children: [
-                      // History Icon - Only show for account users
+                      // Delete Chat History Button
+                      if (messages.isNotEmpty && messages.length > 1) // Show only if there are messages
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.white),
+                          onPressed: _deleteChatHistory,
+                          tooltip: 'ಚಾಟ್ ಇತಿಹಾಸ ಅಳಿಸಿ',
+                        ),
                       if (userMode == 'account')
                         IconButton(
                           icon: const Icon(Icons.history, color: Colors.white),
                           onPressed: _navigateToHistory,
                           tooltip: 'ಚಾಟ್ ಇತಿಹಾಸ',
                         ),
-                      // Profile Icon
                       IconButton(
                         icon: const Icon(Icons.person, color: Colors.white),
                         onPressed: _handleProfileTap,
@@ -1310,7 +1406,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
             margin: const EdgeInsets.only(left: 16),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1B5DC3),
+              color: blueColor, // UPDATED: New blue color
               borderRadius: BorderRadius.circular(24),
             ),
             child: Row(
@@ -1337,8 +1433,9 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     );
   }
 
-  // NEW: Recording UI with audio bubble design
   Widget _buildRecordingUI() {
+    final hasTranscript = _finalTranscript != null || _currentTranscript != null;
+
     return Container(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -1365,7 +1462,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF00796B),
+              color: greenColor, // UPDATED: New green color
               borderRadius: BorderRadius.circular(24),
             ),
             child: Row(
@@ -1483,11 +1580,11 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                     icon: const Icon(Icons.send, size: 24),
                     label:
                     const Text('ಕಳುಹಿಸಿ', style: TextStyle(fontSize: 16)),
-                    onPressed: _currentTranscript != null
-                        ? () => _sendMessage(_currentTranscript!)
-                        : null,
+                    onPressed: hasTranscript ? _sendRecording : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00796B),
+                      backgroundColor: hasTranscript
+                          ? greenColor // UPDATED: New green color
+                          : Colors.grey,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -1517,12 +1614,12 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: const Color(0xFF00796B),
+                color: greenColor, // UPDATED: New green color
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF00796B)
-                        .withAlpha(76), // 30% opacity equivalent
+                    color: greenColor // UPDATED: New green color
+                        .withAlpha(76),
                     blurRadius: 10,
                     offset: const Offset(0, 5),
                   ),

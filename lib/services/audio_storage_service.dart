@@ -60,6 +60,23 @@ class AudioStorageService {
     }
   }
 
+  // In your audio_storage_service.dart file, add this method:
+
+  Future<void> clearAllAudioFiles() async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final audioDir = Directory('${directory.path}/audio_files');
+
+      if (await audioDir.exists()) {
+        await audioDir.delete(recursive: true);
+        debugPrint('✅ All audio files cleared successfully');
+      }
+    } catch (e) {
+      debugPrint('❌ Error clearing audio files: $e');
+      throw Exception('Failed to clear audio files: $e');
+    }
+  }
+
   Future<void> cleanupOldAudioFiles({String? userId, int keepLastDays = 30}) async {
     try {
       final audioDirPath = await _getUserAudioDirectory(userId);
