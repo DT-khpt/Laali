@@ -34,7 +34,7 @@ class _DashboardPageState extends State<DashboardPage> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const WelcomePage()),
-        (route) => false,
+            (route) => false,
       );
     }
   }
@@ -121,11 +121,32 @@ class _DashboardPageState extends State<DashboardPage> {
         }
       }
 
-      // Visit notes removed: rely on local data; keep defaults
+      // Set recent activities
       if (mounted) {
         setState(() {
-          recentSymptoms = [];
-          riskLevel = 'Low';
+          recentSymptoms = [
+            RecentSymptom(
+              symptom: 'ಗರ್ಭಾವಸ್ಥೆಯ ವಯಸ್ಸು ಪರಿಶೀಲಿಸಲಾಗಿದೆ',
+              date: 'ಇಂದು',
+              severity: 'ಸಾಮಾನ್ಯ',
+            ),
+            RecentSymptom(
+              symptom: 'ತಲೆನೋವು ವರದಿ ಮಾಡಲಾಗಿದೆ',
+              date: 'ನಿನ್ನೆ',
+              severity: 'ಕಡಿಮೆ',
+            ),
+            RecentSymptom(
+              symptom: 'ರಕ್ತದ ಒತ್ತಡ ಪರಿಶೀಲನೆ',
+              date: '2 ದಿನಗಳ ಹಿಂದೆ',
+              severity: 'ಸಾಮಾನ್ಯ',
+            ),
+            RecentSymptom(
+              symptom: 'ಆಹಾರ ಸಲಹೆ ಕೇಳಲಾಗಿದೆ',
+              date: '3 ದಿನಗಳ ಹಿಂದೆ',
+              severity: 'ಕಡಿಮೆ',
+            ),
+          ];
+          riskLevel = 'ಕಡಿಮೆ';
         });
       }
     } catch (e) {
@@ -134,17 +155,20 @@ class _DashboardPageState extends State<DashboardPage> {
         setState(() {
           recentSymptoms = [
             RecentSymptom(
-                symptom: 'ತಲೆನೋವು', date: 'ನಿನ್ನೆ', severity: 'ಕಡಿಮೆ'),
+              symptom: 'ಗರ್ಭಾವಸ್ಥೆಯ ವಯಸ್ಸು ಪರಿಶೀಲಿಸಲಾಗಿದೆ',
+              date: 'ಇಂದು',
+              severity: 'ಸಾಮಾನ್ಯ',
+            ),
             RecentSymptom(
-                symptom: 'ರಕ್ತದ ಒತ್ತಡ ಪರಿಶೀಲನೆ',
-                date: '2 ದಿನಗಳ ಹಿಂದೆ',
-                severity: 'ಸಾಮಾನ್ಯ'),
+              symptom: 'ತಲೆನೋವು ವರದಿ ಮಾಡಲಾಗಿದೆ',
+              date: 'ನಿನ್ನೆ',
+              severity: 'ಕಡಿಮೆ',
+            ),
           ];
         });
       }
     }
   }
-
 
   Future<void> _speakSummary() async {
     if (ga == null || isSpeaking) return;
@@ -154,14 +178,13 @@ class _DashboardPageState extends State<DashboardPage> {
     final trimester = ga!.trimester;
     final recent = recentSymptoms.isNotEmpty
         ? recentSymptoms.map((s) => s.symptom).join(', ')
-        : 'ನೀವು ಇತ್ತೀಚೆಗೆ ಯಾವುದೇ ಲಕ್ಷಣಗಳನ್ನು ವರದಿ ಮಾಡಿಲ್ಲ';
+        : 'ನೀವು ಇತ್ತೀಚೆಗೆ ಯಾವುದೇ ಚಟುವಟಿಕೆಗಳನ್ನು ಹೊಂದಿಲ್ಲ';
 
     final summary =
-        'ನಮಸ್ಕಾರ $username. ನೀವು ಪ್ರಸ್ತುತ ಗರ್ಭಾವಸ್ಥೆಯ $gaStr ನಲ್ಲಿದ್ದೀರಿ, ಇದು $trimester ನೇ ತ್ರೈಮಾಸಿಕ. ನಿಮ್ಮ ನಿರೀಕ್ಷಿತ ಹೆರಿಗೆ ದಿನಾಂಕ $dueDateStr. ನಿಮ್ಮ ಗರ್ಭಾವಸ್ಥೆಯ ಅಪಾಯ ಮೌಲ್ಯಮಾಪನ $riskLevel ಆಗಿದೆ. ${recentSymptoms.isNotEmpty ? 'ನೀವು ಇತ್ತೀಚೆಗೆ ವರದಿ ಮಾಡಿದ ಲಕ್ಷಣಗಳು: $recent.' : recent}';
+        'ನಮಸ್ಕಾರ $username. ನೀವು ಪ್ರಸ್ತುತ ಗರ್ಭಾವಸ್ಥೆಯ $gaStr ನಲ್ಲಿದ್ದೀರಿ, ಇದು $trimester ನೇ ತ್ರೈಮಾಸಿಕ. ನಿಮ್ಮ ನಿರೀಕ್ಷಿತ ಹೆರಿಗೆ ದಿನಾಂಕ $dueDateStr. ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಚಟುವಟಿಕೆಗಳು: $recent.';
 
     await ttsService.speak(summary);
   }
-
 
   @override
   void dispose() {
@@ -243,7 +266,7 @@ class _DashboardPageState extends State<DashboardPage> {
                             ],
                           ),
                           child: Icon(
-                            isSpeaking ? Icons.volume_up : Icons.mic,
+                            isSpeaking ? Icons.volume_up : Icons.volume_up,
                             color: Colors.white,
                             size: 50,
                           ),
@@ -289,7 +312,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                   Text(
                                     'ಗರ್ಭಾವಸ್ಥೆಯ ವಯಸ್ಸು',
                                     style:
-                                        Theme.of(context).textTheme.titleLarge,
+                                    Theme.of(context).textTheme.titleLarge,
                                   ),
                                 ],
                               ),
@@ -346,7 +369,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 const SizedBox(height: 16),
 
-                // User Profile Card (visit notes removed)
+                // NEW: Recent Activities Card (in Kannada)
                 Card(
                   elevation: 2,
                   shape: RoundedRectangleBorder(
@@ -354,23 +377,116 @@ class _DashboardPageState extends State<DashboardPage> {
                   child: Padding(
                     padding: const EdgeInsets.all(18),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            Icon(Icons.person,
+                            Icon(Icons.history,
                                 size: 20,
                                 color: Theme.of(context).primaryColor),
                             const SizedBox(width: 8),
-                            Text('User Profile',
+                            Text('ಇತ್ತೀಚಿನ ಚಟುವಟಿಕೆಗಳು',
                                 style: Theme.of(context).textTheme.titleLarge),
                           ],
                         ),
                         const SizedBox(height: 12),
-                        ListTile(
-                          leading: const Icon(Icons.person_outline),
-                          title: const Text('Username'),
-                          subtitle: Text(username),
-                        ),
+
+                        if (recentSymptoms.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Text(
+                              'ಇತ್ತೀಚೆಗೆ ಯಾವುದೇ ಚಟುವಟಿಕೆಗಳಿಲ್ಲ',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontStyle: FontStyle.italic,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          )
+                        else
+                          Column(
+                            children: recentSymptoms.map((activity) =>
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.grey.shade200,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 8,
+                                        height: 8,
+                                        margin: const EdgeInsets.only(top: 6, right: 12),
+                                        decoration: BoxDecoration(
+                                          color: _getSeverityColor(activity.severity),
+                                          shape: BoxShape.circle,
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              activity.symptom,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w500,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Row(
+                                              children: [
+                                                Icon(Icons.calendar_today,
+                                                    size: 12,
+                                                    color: Colors.grey.shade600),
+                                                const SizedBox(width: 4),
+                                                Text(
+                                                  activity.date,
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: Colors.grey.shade600,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(
+                                                      horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(
+                                                    color: _getSeverityColor(activity.severity)
+                                                        .withOpacity(0.1),
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(
+                                                      color: _getSeverityColor(activity.severity)
+                                                          .withOpacity(0.3),
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    activity.severity,
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: _getSeverityColor(activity.severity),
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                            ).toList(),
+                          ),
                       ],
                     ),
                   ),
@@ -444,6 +560,22 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
+
+  // Helper method to get color based on severity
+  Color _getSeverityColor(String severity) {
+    switch (severity.toLowerCase()) {
+      case 'ಕಡಿಮೆ':
+        return Colors.green;
+      case 'ಸಾಮಾನ್ಯ':
+        return Colors.blue;
+      case 'ಹೆಚ್ಚಿನ':
+        return Colors.orange;
+      case 'ತೀವ್ರ':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
 }
 
 class RecentSymptom {
@@ -481,8 +613,8 @@ GestationalAge calculateGestationalAge(DateTime lmp) {
   final trimester = (weeks < 13)
       ? 1
       : (weeks < 27)
-          ? 2
-          : 3;
+      ? 2
+      : 3;
   return GestationalAge(
     weeks: weeks,
     days: days,
