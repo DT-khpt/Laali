@@ -51,7 +51,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
   final AudioStorageService _audioStorage = AudioStorageService();
   final ChatHistoryService _chatHistoryService = ChatHistoryService();
 
-  static const String n8nWebhookUrl = 'https://boundless-unprettily-voncile.ngrok-free.dev/webhook/user-message';
+  static const String n8nWebhookUrl = 'http://davida-gawkier-invigoratingly.ngrok-free.dev/webhook/user-message';
   static const Duration n8nResponseTimeout = Duration(seconds: 300);
 
   // NEW: Colors
