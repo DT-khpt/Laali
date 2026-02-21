@@ -2,7 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import '../chat_message.dart';
+import '../models/chat_message.dart';
 import 'firebase_service.dart';
 
 class ChatHistoryService {

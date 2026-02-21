@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:mcp/provider/user_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'services/tts_service.dart';
-import 'services/firebase_service.dart';
+import '../services/tts_service.dart';
+import '../services/firebase_service.dart';
 import 'welcome_page.dart';
 import 'voice_interface_page.dart';
 
@@ -76,31 +78,18 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _loadPrefsAndCalculate() async {
-    final prefs = await SharedPreferences.getInstance();
-    final storedUsername = prefs.getString('username');
-    final lmpStr = prefs.getString('lmpDate');
+    final userProvider = context.read<UserProvider>();
+    final user = userProvider.user;
 
-    if (mounted) {
-      setState(() {
-        username = storedUsername ?? 'User';
-        if (lmpStr != null) {
-          try {
-            lmpDate = DateTime.parse(lmpStr);
-          } catch (_) {
-            lmpDate = DateTime.now();
-          }
-        } else {
-          lmpDate = DateTime.now();
-        }
-        ga = calculateGestationalAge(lmpDate);
-      });
+    if (user != null) {
+      username = user.username;
+      lmpDate = user.lmpDate;
+      ga = calculateGestationalAge(lmpDate);
     }
 
     await _loadFirebaseData();
 
-    if (mounted) {
-      setState(() => loading = false);
-    }
+    if (mounted) setState(() => loading = false);
   }
 
   Future<void> _loadFirebaseData() async {
@@ -212,16 +201,25 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF00796B)),
-          onPressed: _navigateToWelcome,
-          tooltip: 'ಹಿಂದೆ',
-        ),
-        title: Text('ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
-            style: Theme.of(context).textTheme.titleLarge),
-        backgroundColor: Colors.white,
+        automaticallyImplyLeading: false,
+        title: Row(
+        children: [
+          SizedBox(width: 20,),
+          ClipOval(
+            child: Image.asset(
+              'assets/images/Laali Logo-03.jpg',
+              height: 40,
+              width: 40,
+              fit: BoxFit.cover,
+            ),
+          ),
+          SizedBox(width: 20,),
+          Text('ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
+        style: Theme.of(context).textTheme.titleLarge),
+        ],
+      ),
+        centerTitle: true,
         elevation: 1,
       ),
       body: SingleChildScrollView(
@@ -236,7 +234,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 Column(
                   children: [
                     Text('ಸ್ವಾಗತ, $username',
-                        style: Theme.of(context).textTheme.displaySmall),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 22)),
                     const SizedBox(height: 8),
                     Text('ನಿಮ್ಮ ಗರ್ಭಾವಸ್ಥೆಯ ಅವಲೋಕನ ಇಲ್ಲಿದೆ',
                         style: Theme.of(context).textTheme.bodyMedium),
@@ -540,13 +538,25 @@ class _DashboardPageState extends State<DashboardPage> {
                         Text('ನಿಮ್ಮ ಆರೋಗ್ಯ ಪ್ರಶ್ನೆಗಳಿಗೆ ತಕ್ಷಣ ಉತ್ತರ ಪಡೆಯಿರಿ',
                             style: Theme.of(context).textTheme.bodyMedium),
                         const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.mic),
-                          label: const Text('ಪ್ರಶ್ನೆ ಕೇಳಿ'),
-                          onPressed: _navigateToVoice,
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1976D2),
-                              foregroundColor: Colors.white),
+                        Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: ElevatedButton(
+                            child : Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.mic),
+                               const Text('ಪ್ರಶ್ನೆ ಕೇಳಿ'),
+                                ],
+                              ),
+                            ),
+                            onPressed: _navigateToVoice,
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF1976D2),
+                                foregroundColor: Colors.white),
+                          ),
                         ),
                       ],
                     ),

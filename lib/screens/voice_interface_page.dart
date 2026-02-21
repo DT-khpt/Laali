@@ -5,16 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:mcp/services/audio_player_service.dart' show audioService;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../chat_message.dart';
-import '../services/tts_service.dart';
-import '../services/speech_service.dart';
-import '../services/audio_storage_service.dart';
-import '../services/chat_history_service.dart';
-import '../data/video_database.dart';
-import '../welcome_page.dart';
-import '../dashboard.dart';
-import '../voice_signup_page.dart';
-import '../history_page.dart';
+import '../models/chat_message.dart';
+import '../../services/tts_service.dart';
+import '../../services/speech_service.dart';
+import '../../services/audio_storage_service.dart';
+import '../../services/chat_history_service.dart';
+import '../../data/video_database.dart';
+import 'welcome_page.dart';
+import 'dashboard.dart';
+import 'voice_signup_page.dart';
+import 'history_page.dart';
 
 class VoiceInterfacePage extends StatefulWidget {
   const VoiceInterfacePage({super.key});
@@ -66,14 +66,7 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
     _addWelcomeMessage();
   }
 
-  // SAFE NAVIGATION METHODS
-  void _navigateToWelcome() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const WelcomePage()),
-          (route) => false,
-    );
-  }
+  
 
   void _navigateToHistory() {
     try {
@@ -1301,7 +1294,9 @@ class _VoiceInterfacePageState extends State<VoiceInterfacePage> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: _navigateToWelcome,
+                    onPressed: (){
+                      Navigator.pushNamed(context, '/dashboard');
+                    },
                     tooltip: 'ಹಿಂದೆ',
                   ),
                   const Text(

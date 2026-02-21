@@ -4,7 +4,7 @@ class VideoRecord {
   final List<double> embedding;
   final String videoUrl;
   final String title;
-  final String? description; // Optional field for future use
+  final String? description; 
 
   VideoRecord({
     required this.id,

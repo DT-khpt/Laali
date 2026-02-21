@@ -8,7 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:mcp/index_page.dart';
+import 'package:mcp/screens/index_page.dart';
 
 void main() {
   testWidgets('IndexPage renders title and action button', (WidgetTester tester) async {

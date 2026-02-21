@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../services/audio_player_service.dart' show audioService;
-import '../chat_message.dart';
-import '../services/chat_history_service.dart';
-import '../services/audio_storage_service.dart';
+import '../../services/audio_player_service.dart' show audioService;
+import '../models/chat_message.dart';
+import '../../services/chat_history_service.dart';
+import '../../services/audio_storage_service.dart';
 
 class HistoryPage extends StatefulWidget {
   const HistoryPage({super.key});

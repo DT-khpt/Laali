@@ -27,3 +27,4 @@ class EmbeddingUtils {
     return vector.map((x) => x / norm).toList();
   }
 }
+

@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart';
+import 'package:mcp/models/userModel.dart';
+import 'package:mcp/provider/user_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'services/tts_service.dart';
-import 'services/speech_service.dart';
-import 'services/name_extractor.dart';
-import 'services/voice_identity_service.dart';
-import 'services/ai_service.dart';
-import 'services/firebase_service.dart';
+import '../services/tts_service.dart';
+import '../services/speech_service.dart';
+import '../services/name_extractor.dart';
+import '../services/voice_identity_service.dart';
+import '../services/ai_service.dart';
+import '../services/firebase_service.dart';
 import 'dashboard.dart';
 import 'welcome_page.dart';
 
@@ -213,10 +217,15 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
       await voiceIdentityService.createVoiceIdentity(username);
       await _speak('ಖಾತೆ ರಚಿಸಲಾಗಿದೆ. ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ಗೆ ಕರೆದೊಯ್ಯುತ್ತಿದ್ದೇನೆ.');
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('userMode', 'account');
-      await prefs.setString('username', username);
-      await prefs.setString('lmpDate', finalLmpDate.toIso8601String());
+      final userProvider = context.read<UserProvider>();
+
+      userProvider.saveUser(
+        UserModel(
+          userMode: 'account',
+          username: username,
+          lmpDate: finalLmpDate,
+        ),
+      );
 
       if (mounted) _navigateToDashboard();
     } catch (e) {
