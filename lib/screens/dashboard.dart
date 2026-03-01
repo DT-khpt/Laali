@@ -79,7 +79,7 @@ class _DashboardPageState extends State<DashboardPage> {
 
   Future<void> _loadPrefsAndCalculate() async {
     final userProvider = context.read<UserProvider>();
-    final user = userProvider.user;
+    final user = userProvider.currentUser;
 
     if (user != null) {
       username = user.username;

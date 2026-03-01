@@ -21,16 +21,16 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _initializeApp() async {
     final userProvider = context.read<UserProvider>();
 
-    await userProvider.loadUser();
+    await userProvider.loadUsers();
 
-    await Future.delayed(const Duration(seconds: 3));
+    await Future.delayed(const Duration(seconds: 2));
 
     if (!mounted) return;
 
-    if (userProvider.isLoggedIn) {
-      Navigator.pushReplacementNamed(context, Routes.dashboard);
-    } else {
+    if (userProvider.users.isEmpty) {
       Navigator.pushReplacementNamed(context, Routes.welcome);
+    } else {
+      Navigator.pushReplacementNamed(context, Routes.selectAccount);
     }
   }
 

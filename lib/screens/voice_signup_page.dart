@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart';
+import 'package:mcp/config/routes.dart';
 import 'package:mcp/models/userModel.dart';
 import 'package:mcp/provider/user_provider.dart';
 import 'package:provider/provider.dart';
@@ -200,41 +201,43 @@ class _VoiceSignupPageState extends State<VoiceSignupPage> {
   // SIMPLIFIED: Direct account creation
   Future<void> _handleConfirm() async {
     setState(() => _loading = true);
+
     try {
-      // Create user and profile
-      final user = await _firebaseService.signInAnonymously();
-      if (user == null) throw Exception('Failed to create user');
-
-      // Use today's date if LMP not provided
       final finalLmpDate = lmpDate ?? DateTime.now();
-
-      await _firebaseService.createUserProfile(
-          username: username,
-          lmpDate: finalLmpDate,
-          isAnonymous: false
-      );
-
-      await voiceIdentityService.createVoiceIdentity(username);
-      await _speak('ಖಾತೆ ರಚಿಸಲಾಗಿದೆ. ಡ್ಯಾಶ್‌ಬೋರ್ಡ್ಗೆ ಕರೆದೊಯ್ಯುತ್ತಿದ್ದೇನೆ.');
 
       final userProvider = context.read<UserProvider>();
 
-      userProvider.saveUser(
+      // 🔥 Generate local incremental ID
+      final generatedId = await userProvider.generateUserId();
+
+      await voiceIdentityService.createVoiceIdentity(username);
+
+      // Save locally (multi-account)
+      await userProvider.addUser(
         UserModel(
+          id: generatedId,
           userMode: 'account',
           username: username,
           lmpDate: finalLmpDate,
         ),
       );
 
-      if (mounted) _navigateToDashboard();
+      await _speak('ಖಾತೆ ಯಶಸ್ವಿಯಾಗಿ ರಚಿಸಲಾಗಿದೆ.');
+
+      if (!mounted) return;
+
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        Routes.selectAccount,
+        (route) => false,
+      );
     } catch (e) {
       debugPrint('Signup error: $e');
       await _speak('ಕ್ಷಮಿಸಿ, ಖಾತೆ ರಚಿಸುವಾಗ ಸಮಸ್ಯೆ ಉಂಟಾಗಿದೆ.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
-  }
+}
 
   Future<void> _handleReject() async {
     if (username.isNotEmpty && lmpDate == null) {

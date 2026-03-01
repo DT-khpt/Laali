@@ -108,44 +108,40 @@ class _WelcomePageState extends State<WelcomePage> {
 
 
   Future<void> _handleAnonymous() async {
-    try {
-      final userProvider = context.read<UserProvider>();
+  try {
+    final userProvider = context.read<UserProvider>();
+    final now = DateTime.now();
 
-      final firebaseUser =
-          await _firebaseService.signInAnonymously();
+    // 🔥 Generate local incremental ID
+    final generatedId = await userProvider.generateUserId();
 
-      if (firebaseUser != null) {
-        final now = DateTime.now();
+    await voiceIdentityService.createVoiceIdentity('ಅತಿಥಿ');
 
-        await _firebaseService.createUserProfile(
-          username: 'ಅತಿಥಿ',
-          lmpDate: now,
-          isAnonymous: true,
-        );
+    final userModel = UserModel(
+      id: generatedId,
+      userMode: 'anonymous',
+      username: 'ಅತಿಥಿ',
+      lmpDate: now,
+    );
 
-        await voiceIdentityService.createVoiceIdentity('ಅತಿಥಿ');
+    // 🔥 IMPORTANT: Use addUser (multi-account)
+    await userProvider.addUser(userModel);
 
-        final userModel = UserModel(
-          userMode: 'anonymous',
-          username: 'ಅತಿಥಿ',
-          lmpDate: now,
-        );
+    await _speak('ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯುತ್ತಿದ್ದೇನೆ.');
 
-        await userProvider.saveUser(userModel);
+    if (!mounted) return;
 
-        await _speak('ಅನಾಮಧೇಯವಾಗಿ ಮುಂದುವರಿಯುತ್ತಿದ್ದೇನೆ.');
-
-        if (!mounted) return;
-        Navigator.pushReplacementNamed(context, Routes.dashboard);
-      }
-    } catch (e) {
-      debugPrint('Anonymous error: $e');
-      await _speak('ಕ್ಷಮಿಸಿ, ಪ್ರವೇಶದಲ್ಲಿ ಸಮಸ್ಯೆ ಉಂಟಾಗಿದೆ.');
-
-      if (!mounted) return;
-      Navigator.pushReplacementNamed(context, Routes.dashboard);
-    }
+    // ✅ Go to Account Selection page (not dashboard)
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      Routes.selectAccount,
+      (route) => false,
+    );
+  } catch (e) {
+    debugPrint('Anonymous error: $e');
+    await _speak('ಕ್ಷಮಿಸಿ, ಪ್ರವೇಶದಲ್ಲಿ ಸಮಸ್ಯೆ ಉಂಟಾಗಿದೆ.');
   }
+}
 
 
   Future<void> _prepareServices() async {

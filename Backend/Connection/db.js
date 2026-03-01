@@ -15,7 +15,7 @@ async function createDatabaseIfNotExists() {
     host: DB_HOST,
     password: DB_PASSWORD,
     port: DB_PORT,
-    database: 'postgres' // Connect to default DB first
+    database: 'postgres' 
   });
 
   await client.connect();
