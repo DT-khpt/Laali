@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mcp/config/routes.dart';
 import 'package:mcp/provider/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -233,6 +234,13 @@ class _DashboardPageState extends State<DashboardPage>
       ),
         centerTitle: true,
         elevation: 1,
+        actions: [
+          IconButton(
+                        icon: const Icon(Icons.person, color: Colors.white),
+                        onPressed: ()=> Navigator.pushNamed(context , Routes.profile),
+                        tooltip: 'ಪ್ರೊಫೈಲ್',
+                      ),
+        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),

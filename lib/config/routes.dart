@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mcp/screens/dashboard.dart';
+import 'package:mcp/screens/profile_page.dart';
 import 'package:mcp/screens/select_account_page.dart';
 import 'package:mcp/screens/splashScreen.dart';
 import 'package:mcp/screens/voice_interface_page.dart';
@@ -14,6 +15,7 @@ class Routes {
   static const String welcome = '/welcome';
   static const String error = '/error';
   static const String selectAccount = '/selectAccount';
+  static const String profile = '/profile';
 }
 
 class AppPages {
@@ -24,5 +26,6 @@ class AppPages {
     Routes.voice: (context) => const VoiceInterfacePage(),
     Routes.dashboard: (context) => const DashboardPage(),
     Routes.selectAccount : (context) => const SelectAccountPage(),
+    Routes.profile : (context)=> const ProfileScreen(),
   };
 }
