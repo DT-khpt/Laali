@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:mcp/config/routes.dart';
 import 'package:mcp/services/audio_player_service.dart' show audioService;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_message.dart';
@@ -1343,7 +1344,7 @@ void dispose() {
                         ),
                       IconButton(
                         icon: const Icon(Icons.person, color: Colors.white),
-                        onPressed: _handleProfileTap,
+                        onPressed: ()=> Navigator.pushNamedAndRemoveUntil(context,Routes.profile,(routes)=>false),
                         tooltip: 'ಪ್ರೊಫೈಲ್',
                       ),
                     ],
