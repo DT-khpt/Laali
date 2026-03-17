@@ -41,6 +41,6 @@ flutter:
 
 flutter_icons:
   android: true
-  image_path: "assets/images/maternal-hero-1.jpg"
+  image_path: "assets/images/Laali Logo-01.jpg"
   adaptive_icon_background: "#ffffff"
-  adaptive_icon_foreground: "assets/images/maternal-hero-1.jpg"
+  adaptive_icon_foreground: "assets/images/Laali Logo-01.jpg"
